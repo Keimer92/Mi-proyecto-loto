@@ -3325,7 +3325,7 @@ class AppLoteria:
             messagebox.showerror("Error al Imprimir", f"Ocurrió un error al generar/abrir el PDF para impresión: {e}")
             # print(f"ERROR: Exception during PDF print: {e}") 
 
-from collections import Counter
+
 
     # Funcion para importar base de datos externas para excel y sqlite
     def importar_ventas_externas(self):
@@ -3391,8 +3391,7 @@ from collections import Counter
 
         messagebox.showinfo("Importación exitosa", f"Se importaron {len(df)} ventas desde Excel.")
 
-
-
+from collections import Counter
 def obtener_top_numeros_mas_vendidos_hoy(limit=5):
     """Devuelve los N números más vendidos hoy con el total de apuesta."""
     fecha_actual = datetime.now().strftime('%Y-%m-%d')

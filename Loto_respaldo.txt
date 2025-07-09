@@ -10,6 +10,9 @@ import subprocess
 import atexit
 import re # Necesario para el procesamiento del reporte en PDF
 import json 
+import pandas as pd
+from tkinter import filedialog, messagebox
+
 
 from tkcalendar import DateEntry
 from fpdf import FPDF, enums # Importar enums aquí
@@ -2029,6 +2032,15 @@ class AppLoteria:
         self.frame_selector_tema.columnconfigure(1, weight=1)
 
 
+        #Boton para importar bases de datos
+        self.btn_importar_ventas = ttk.Button(
+            self.frame_acciones,
+            text="Importar ventas desde archivo",
+            command=self.importar_ventas_externas
+        )
+        self.btn_importar_ventas.pack(pady=10, fill="x", padx=20)
+
+
         # --- Nuevo: Frame para configurar el premio por cada 5 ---
         self.frame_config_premio = ttk.LabelFrame(self.tab_configuracion, text="Configurar Premio por C$1")
         self.frame_config_premio.pack(padx=15, pady=10, fill="x", expand=True)
@@ -2064,11 +2076,9 @@ class AppLoteria:
                 command=self.restaurar_distribucion_predeterminada).pack(padx=10, pady=5, fill="x")
 
 
-
         # Opcional: Centrar el contenido en la pestaña de configuración
         self.tab_configuracion.grid_columnconfigure(0, weight=1) # Make the column expandable
         self.tab_configuracion.grid_rowconfigure(0, weight=1)    # Make the row expandable
-
 
 
 
@@ -3315,8 +3325,73 @@ class AppLoteria:
             messagebox.showerror("Error al Imprimir", f"Ocurrió un error al generar/abrir el PDF para impresión: {e}")
             # print(f"ERROR: Exception during PDF print: {e}") 
 
-from collections import Counter
 
+
+    # Funcion para importar base de datos externas para excel y sqlite
+    def importar_ventas_externas(self):
+        ruta = filedialog.askopenfilename(
+            title="Seleccionar archivo de ventas",
+            filetypes=[("Bases de datos SQLite", "*.db"), ("Archivos Excel", "*.xlsx")]
+        )
+        if not ruta:
+            return
+
+        try:
+            if ruta.endswith(".db"):
+                self._importar_desde_sqlite(ruta)
+            elif ruta.endswith(".xlsx"):
+                self._importar_desde_excel(ruta)
+            else:
+                messagebox.showerror("Formato no compatible", "Solo se permiten archivos .db o .xlsx")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo importar: {e}")
+
+    def _importar_desde_sqlite(self, ruta_externa):
+        conn_ext = sqlite3.connect(ruta_externa)
+        cursor_ext = conn_ext.cursor()
+
+        conn_local = sqlite3.connect(DB_NAME)
+        cursor_local = conn_local.cursor()
+
+        # Validar que exista la tabla 'ventas'
+        cursor_ext.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ventas'")
+        if not cursor_ext.fetchone():
+            messagebox.showerror("Error", "La base seleccionada no contiene una tabla 'ventas'")
+            return
+
+        cursor_ext.execute("SELECT * FROM ventas")
+        ventas = cursor_ext.fetchall()
+
+        for fila in ventas:
+            try:
+                cursor_local.execute("INSERT INTO ventas VALUES (?, ?, ?, ?, ?, ?, ?)", fila)
+            except sqlite3.IntegrityError:
+                pass  # Ignorar duplicados
+
+        conn_local.commit()
+        conn_ext.close()
+        conn_local.close()
+
+        messagebox.showinfo("Importación exitosa", f"Se importaron {len(ventas)} ventas desde SQLite.")
+
+    def _importar_desde_excel(self, ruta_excel):
+        df = pd.read_excel(ruta_excel)
+
+        columnas_esperadas = {"numero_loteria", "apuesta", "premio_potencial", "fecha_hora", "sorteo_hora", "venta_fecha_solo_dia"}
+        if not columnas_esperadas.issubset(set(df.columns)):
+            raise ValueError("El Excel no tiene columnas válidas. Se requieren:\n" + ", ".join(columnas_esperadas))
+
+        # Si no tiene columna ID, la agregamos como autoincremental ficticia
+        if "id" not in df.columns:
+            df.insert(0, "id", None)
+
+        conn = sqlite3.connect(DB_NAME)
+        df.to_sql("ventas", conn, if_exists="append", index=False)
+        conn.close()
+
+        messagebox.showinfo("Importación exitosa", f"Se importaron {len(df)} ventas desde Excel.")
+
+from collections import Counter
 def obtener_top_numeros_mas_vendidos_hoy(limit=5):
     """Devuelve los N números más vendidos hoy con el total de apuesta."""
     fecha_actual = datetime.now().strftime('%Y-%m-%d')
