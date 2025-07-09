@@ -310,6 +310,18 @@ def obtener_tema_db():
     conn.close()
     return tema[0] if tema else 'clam' # Retorna el tema o 'clam' por defecto
 
+def obtener_sorteo_actual_automatico():
+    ahora = datetime.now().time()
+    if ahora < datetime.strptime("12:00", "%H:%M").time():
+        return "11 AM"
+    elif ahora < datetime.strptime("16:00", "%H:%M").time():
+        return "03 PM"
+    elif ahora < datetime.strptime("19:00", "%H:%M").time():
+        return "06 PM"
+    else:
+        return "09 PM"
+
+
 def actualizar_tema_db(nuevo_tema):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -866,7 +878,7 @@ class AppLoteria:
         self.anio_resumen_var = tk.StringVar(value=str(datetime.now().year))
         self.fecha_ini_resumen_var = tk.StringVar(value=datetime.now().strftime('%Y-%m-%d'))
         self.fecha_fin_resumen_var = tk.StringVar(value=datetime.now().strftime('%Y-%m-%d'))
-        self.sorteo_resumen_var = tk.StringVar(value="Todos")
+        self.sorteo_resumen_var = tk.StringVar(value=obtener_sorteo_actual_automatico())
         self.apuesta_var.trace_add("write", self.actualizar_premio_calculado)
         self.sorteo_var.trace_add("write", self.update_top_info)
         self.periodo_resumen_var.trace_add("write", self.mostrar_controles_dinamicos_resumen)
@@ -2165,7 +2177,7 @@ class AppLoteria:
             # Si ya pasaron todos los sorteos del día, seleccionar el último (09 PM)
             selected_sorteo = '09 PM'
         
-        self.sorteo_var.set(selected_sorteo)
+        self.sorteo_var.set(obtener_sorteo_actual_automatico())
 
 
     def crear_widgets_tab_sorteos(self):
@@ -2183,7 +2195,7 @@ class AppLoteria:
         # --- Radiobuttons para Sorteo en Gestión de Sorteos ---
         ttk.Label(frame_registrar, text="Sorteo:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.sorteo_registro_var = tk.StringVar()
-        self.sorteo_registro_var.set('06 PM')
+        self.sorteo_registro_var.set(obtener_sorteo_actual_automatico())
         
         self.sorteo_radio_frame_registro = ttk.Frame(frame_registrar)
         self.sorteo_radio_frame_registro.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
@@ -2221,7 +2233,7 @@ class AppLoteria:
         # --- Radiobuttons para Sorteo en Consultar Ganador ---
         ttk.Label(frame_consultar, text="Sorteo a Consultar:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.sorteo_consulta_var = tk.StringVar()
-        self.sorteo_consulta_var.set('06 PM')
+        self.sorteo_consulta_var.set(obtener_sorteo_actual_automatico())
         
         self.sorteo_radio_frame_consulta = ttk.Frame(frame_consultar)
         self.sorteo_radio_frame_consulta.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
