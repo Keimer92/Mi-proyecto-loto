@@ -939,6 +939,7 @@ class AppLoteria:
     def actualizar_resumen_ventas_dia(self):
         """Actualiza el Treeview con el resumen de ventas agrupadas por número y sorteo, según filtros."""
         self.tree_historial_resumen.delete(*self.tree_historial_resumen.get_children())
+        self.actualizar_estadisticas_ventas(fecha_ini, fecha_fin)
 
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
@@ -1199,6 +1200,7 @@ class AppLoteria:
         # Ahora creamos el LabelFrame verdadero dentro del frame intermedio
         self.frame_filtros_resumen = ttk.LabelFrame(frame_filtros_container, text="Filtros de Resumen Diario")
         self.frame_filtros_resumen.pack(fill="both", expand=True)
+
         # Hacer que el canvas sepa cuánto espacio ocupa el contenido
         frame_filtros_container.bind(
             "<Configure>",
@@ -1317,9 +1319,6 @@ class AppLoteria:
         )
         self.btn_exportar_resumen_pdf.grid(row=6, column=0, columnspan=2, pady=10, sticky="ew")
 
-
-
-
         #Boton para exportar resumen a Excel
         self.btn_exportar_resumen_excel = ttk.Button(
             self.frame_filtros_resumen,
@@ -1355,12 +1354,13 @@ class AppLoteria:
         self.tree_historial_resumen.column("Premio Potencial", width=120, anchor="center")
         self.tree_historial_resumen.column("Sorteo", width=80, anchor="center")
 
+
+        #Se guardan las posiciones de las columnas interas del treeview para resumen ventas
         self.persistir_anchos_treeview(
             treeview_widget=self.tree_historial_resumen,
             clave_sqlite="ventas_resumen_columnas",
             columnas=["Numero", "Apuesta Total", "Premio Potencial", "Sorteo"]
         )
-
 
         self.mes_resumen_var.trace_add("write", lambda *args: self.actualizar_resumen_ventas_dia())
         self.anio_resumen_var.trace_add("write", lambda *args: self.actualizar_resumen_ventas_dia())
@@ -1385,6 +1385,20 @@ class AppLoteria:
         self.tree_historial_resumen.configure(yscrollcommand=scrollbar_historial.set)
         scrollbar_historial.pack(side="right", fill="y")
 
+
+        self.frame_estadisticas = ttk.LabelFrame(self.tab_ventas, text="📊 Estadísticas rápidas")
+        self.frame_estadisticas.pack(fill="x", padx=10, pady=5)
+
+        self.label_total_vendido = ttk.Label(self.frame_estadisticas, text="Total vendido: C$ 0.00")
+        self.label_total_vendido.pack(anchor="w", padx=10)
+
+        self.label_numero_mas_vendido = ttk.Label(self.frame_estadisticas, text="Número más vendido: -")
+        self.label_numero_mas_vendido.pack(anchor="w", padx=10)
+
+        self.label_vendedor_top = ttk.Label(self.frame_estadisticas, text="Vendedor con más ventas: -")
+        self.label_vendedor_top.pack(anchor="w", padx=10)
+
+
         # --- Ganadores del día (self.frame_ganadores_dia) ---
         self.frame_ganadores_dia = ttk.LabelFrame(self.ventas_paned_window, text="Ganadores del Día")
         self.ventas_paned_window.add(self.frame_ganadores_dia, weight=1) # Añadir al PanedWindow
@@ -1398,6 +1412,9 @@ class AppLoteria:
         self.tree_ganadores_dia.heading("Ganador", text="Número")
         self.tree_ganadores_dia.column("Sorteo", width=100, anchor="center")
         self.tree_ganadores_dia.column("Ganador", width=120, anchor="center")
+
+
+
 
         # --- Estado de la venta --- (Lo movemos al final para que no interrumpa el PanedWindow)
         self.frame_estado = tk.LabelFrame(self.tab_ventas, text="Estado de Venta", font=("Arial", 10, "bold"))
@@ -1415,8 +1432,7 @@ class AppLoteria:
             except json.JSONDecodeError as e:
                 print(f"Error al decodificar JSON de posiciones de PanedWindow: {e}")
 
-       
-       
+              
         # Guardado automático periódico
         self._ultimas_posiciones_paned = []
         self._paned_sin_cambios = 0
@@ -1461,6 +1477,56 @@ class AppLoteria:
                 self.root.after(1000, verificar_paned_positions)
 
 
+    #
+    def actualizar_estadisticas_ventas(self, fecha_ini=None, fecha_fin=None):
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+
+        if not fecha_ini or not fecha_fin:
+            fecha_ini = fecha_fin = datetime.now().strftime("%Y-%m-%d")
+
+        # Total vendido
+        cursor.execute("""
+            SELECT SUM(apuesta) FROM ventas
+            WHERE venta_fecha_solo_dia BETWEEN ? AND ?
+        """, (fecha_ini, fecha_fin))
+        total = cursor.fetchone()[0] or 0
+        self.label_total_vendido.config(text=f"Total vendido: C$ {total:,.2f}")
+
+        # Número más vendido
+        cursor.execute("""
+            SELECT numero_loteria, COUNT(*) as cantidad
+            FROM ventas
+            WHERE venta_fecha_solo_dia BETWEEN ? AND ?
+            GROUP BY numero_loteria
+            ORDER BY cantidad DESC
+            LIMIT 1
+        """, (fecha_ini, fecha_fin))
+        fila = cursor.fetchone()
+        if fila:
+            self.label_numero_mas_vendido.config(text=f"Número más vendido: {fila[0]} ({fila[1]} veces)")
+        else:
+            self.label_numero_mas_vendido.config(text="Número más vendido: -")
+
+        # Vendedor con más ventas
+        cursor.execute("""
+            SELECT vendedor, SUM(apuesta) as total
+            FROM ventas
+            WHERE venta_fecha_solo_dia BETWEEN ? AND ?
+            GROUP BY vendedor
+            ORDER BY total DESC
+            LIMIT 1
+        """, (fecha_ini, fecha_fin))
+        fila = cursor.fetchone()
+        if fila:
+            self.label_vendedor_top.config(text=f"Vendedor con más ventas: {fila[0]} (C$ {fila[1]:,.2f})")
+        else:
+            self.label_vendedor_top.config(text="Vendedor con más ventas: -")
+
+        conn.close()
+
+    
+    
     def mostrar_controles_dinamicos_resumen(self, *args):
         # Ocultar todo antes de decidir qué mostrar
         periodo = self.periodo_resumen_var.get()
@@ -1513,8 +1579,6 @@ class AppLoteria:
         guardar_configuracion_ui_db('ventas_paned_sash_positions', json.dumps(posiciones))
         print(f"💾 Distribución manual guardada (con widths): {posiciones}")
         messagebox.showinfo("Distribución Guardada", f"✅ Distribución guardada:\n{posiciones}")
-
-
 
 
     def restaurar_distribucion_predeterminada(self):
