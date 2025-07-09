@@ -1,0 +1,30 @@
+# ⚙️ Archivos de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# 📦 Archivos de entorno o configuraciones locales
+.env
+*.env
+.vscode/
+*.log
+
+# 🧪 Bases de datos
+*.sqlite3
+*.db
+
+# 💥 Respaldos o archivos temporales
+*.bak
+*.tmp
+*.swp
+*respaldo.txt
+
+# 🖼️ Salidas generadas como reportes
+/Reportes/
+temp_pdfs/
+
+# 🧼 Otros archivos que no querés versionar
+*.xlsx
+*.pdf
+*.zip
