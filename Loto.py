@@ -939,8 +939,7 @@ class AppLoteria:
     def actualizar_resumen_ventas_dia(self):
         """Actualiza el Treeview con el resumen de ventas agrupadas por número y sorteo, según filtros."""
         self.tree_historial_resumen.delete(*self.tree_historial_resumen.get_children())
-        self.actualizar_estadisticas_ventas(fecha_ini, fecha_fin)
-
+        
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         ahora = datetime.now()
@@ -952,14 +951,20 @@ class AppLoteria:
         where = []
         params = []
 
+        # ⬇️ Asegurar que siempre existan
+        fecha_ini = fecha_fin = ahora.strftime('%Y-%m-%d')
+
         if periodo == "diario":
-            fecha = ahora.strftime('%Y-%m-%d')
+            fecha_ini = fecha_fin = ahora.strftime('%Y-%m-%d')
             where.append("venta_fecha_solo_dia = ?")
-            params.append(fecha)
+            params.append(fecha_ini)
+
         elif periodo == "semanal":
-            lunes = (ahora - timedelta(days=ahora.weekday())).strftime('%Y-%m-%d')
+            fecha_ini = (ahora - timedelta(days=ahora.weekday())).strftime('%Y-%m-%d')
+            fecha_fin = ahora.strftime('%Y-%m-%d')
             where.append("venta_fecha_solo_dia >= ?")
-            params.append(lunes)
+            params.append(fecha_ini)
+
         elif periodo == "mensual":
             mes_map = {
                 "Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04",
@@ -969,16 +974,16 @@ class AppLoteria:
             mes_nombre = self.mes_resumen_var.get()
             mes = mes_map.get(mes_nombre, "01")
             anio = self.anio_resumen_var.get()
+            fecha_ini = f"{anio}-{mes}-01"
+            fecha_fin = f"{anio}-{mes}-31"
             where.append("venta_fecha_solo_dia LIKE ?")
             params.append(f"{anio}-{mes}-%")
 
         elif periodo == "por período":
             fecha_ini = self.fecha_ini_entry_resumen.get_date().strftime("%Y-%m-%d")
             fecha_fin = self.fecha_fin_entry_resumen.get_date().strftime("%Y-%m-%d")
-
             where.append("venta_fecha_solo_dia BETWEEN ? AND ?")
             params.extend([fecha_ini, fecha_fin])
-
 
         if sorteo != "Todos":
             where.append("sorteo_hora = ?")
@@ -1017,6 +1022,8 @@ class AppLoteria:
                 sorteo_hora
             ))
 
+        # ✅ Ahora siempre se pasan las fechas correctas
+        self.actualizar_estadisticas_ventas(fecha_ini, fecha_fin)
 
 
     def exportar_resumen_pdf(self):
@@ -1387,16 +1394,13 @@ class AppLoteria:
 
 
         self.frame_estadisticas = ttk.LabelFrame(self.tab_ventas, text="📊 Estadísticas rápidas")
-        self.frame_estadisticas.pack(fill="x", padx=10, pady=5)
+        self.frame_estadisticas.grid(row=99, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
 
         self.label_total_vendido = ttk.Label(self.frame_estadisticas, text="Total vendido: C$ 0.00")
-        self.label_total_vendido.pack(anchor="w", padx=10)
+        self.label_total_vendido.grid(row=0, column=0, sticky="w", padx=10)
 
         self.label_numero_mas_vendido = ttk.Label(self.frame_estadisticas, text="Número más vendido: -")
-        self.label_numero_mas_vendido.pack(anchor="w", padx=10)
-
-        self.label_vendedor_top = ttk.Label(self.frame_estadisticas, text="Vendedor con más ventas: -")
-        self.label_vendedor_top.pack(anchor="w", padx=10)
+        self.label_numero_mas_vendido.grid(row=1, column=0, sticky="w", padx=10)
 
 
         # --- Ganadores del día (self.frame_ganadores_dia) ---
@@ -1507,21 +1511,6 @@ class AppLoteria:
             self.label_numero_mas_vendido.config(text=f"Número más vendido: {fila[0]} ({fila[1]} veces)")
         else:
             self.label_numero_mas_vendido.config(text="Número más vendido: -")
-
-        # Vendedor con más ventas
-        cursor.execute("""
-            SELECT vendedor, SUM(apuesta) as total
-            FROM ventas
-            WHERE venta_fecha_solo_dia BETWEEN ? AND ?
-            GROUP BY vendedor
-            ORDER BY total DESC
-            LIMIT 1
-        """, (fecha_ini, fecha_fin))
-        fila = cursor.fetchone()
-        if fila:
-            self.label_vendedor_top.config(text=f"Vendedor con más ventas: {fila[0]} (C$ {fila[1]:,.2f})")
-        else:
-            self.label_vendedor_top.config(text="Vendedor con más ventas: -")
 
         conn.close()
 
