@@ -900,7 +900,6 @@ class AppLoteria:
         self.tab_configuracion = ttk.Frame(self.notebook) # Nueva pestaña
         
         
-
         self.notebook.add(self.tab_ventas, text="Ventas")
         self.notebook.add(self.tab_sorteos, text="Gestión de Sorteos")
         self.notebook.add(self.tab_reportes, text="Reportes")
@@ -1417,7 +1416,9 @@ class AppLoteria:
         self.tree_ganadores_dia.column("Sorteo", width=100, anchor="center")
         self.tree_ganadores_dia.column("Ganador", width=120, anchor="center")
 
-
+        # ✅ Configurar los tags aquí, después de crear el Treeview
+        self.tree_ganadores_dia.tag_configure('ingresado', background='#c8e6c9')   # Verde claro
+        self.tree_ganadores_dia.tag_configure('pendiente', background='#ffcdd2')   # Rojo claro
 
 
         # --- Estado de la venta --- (Lo movemos al final para que no interrumpa el PanedWindow)
@@ -2687,23 +2688,25 @@ class AppLoteria:
             
 
     def actualizar_estado_ganadores_ventas(self):
-        """
-        Actualiza el Treeview en la pestaña de Ventas con el estado de los números ganadores
-        para la fecha actual, resaltando los no ingresados.
-        """
-        for item in self.tree_ganadores_dia.get_children():
-            self.tree_ganadores_dia.delete(item)
-        
+        self.tree_ganadores_dia.delete(*self.tree_ganadores_dia.get_children())
+
         fecha_actual = datetime.now().strftime('%Y-%m-%d')
-        
-        for sorteo in self.sorteo_options_all: # Iterar sobre todos los sorteos
+
+        for sorteo in self.sorteo_options_all:
             numero_ganador = consultar_numero_ganador_db(fecha_actual, sorteo)
-            
+
             if numero_ganador:
-                self.tree_ganadores_dia.insert("", tk.END, values=(sorteo, numero_ganador))
+                self.tree_ganadores_dia.insert(
+                    "", "end",
+                    values=(sorteo, numero_ganador),
+                    tags=("ingresado",)
+                )
             else:
-                # Si no hay número ganador, insertar "PENDIENTE" y aplicar el tag "no_ingresado"
-                self.tree_ganadores_dia.insert("", tk.END, values=(sorteo, "PENDIENTE"), tags=('no_ingresado',))
+                self.tree_ganadores_dia.insert(
+                    "", "end",
+                    values=(sorteo, "PENDIENTE"),
+                    tags=("pendiente",)
+                )
 
     def mostrar_ventana_cambiar_clave(self):
         """Abre una nueva ventana para cambiar la clave de acceso (para la pestaña de configuracion)."""
