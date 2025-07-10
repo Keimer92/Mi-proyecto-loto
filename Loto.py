@@ -2278,21 +2278,21 @@ class AppLoteria:
         registrar.pack(fill="x", padx=5, pady=5)
 
         ttk.Label(registrar, text="Fecha:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.date_entry_registro = DateEntry(registrar, width=12, date_pattern='yyyy-mm-dd')
-        self.date_entry_registro.grid(row=0, column=1, padx=5, pady=(5, 15))
-        ttk.Label(registrar, text="Sorteo:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        ttk.Label(registrar, text="Sorteo:").grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
+        self.date_entry_registro = DateEntry(registrar, width=12, date_pattern='yyyy-mm-dd')
+        self.date_entry_registro.grid(row=1, column=0, padx=5, pady=5, sticky="w")
 
         self.sorteo_registro_var = tk.StringVar(value="11 AM")
         self.sorteo_radio_frame_registro = ttk.Frame(registrar)
-        self.sorteo_radio_frame_registro.grid(row=1, column=1, padx=5)
+        self.sorteo_radio_frame_registro.grid(row=1, column=1, padx=5, pady=5, sticky="w")
         for i, s in enumerate(self.sorteo_options_all):
             ttk.Radiobutton(self.sorteo_radio_frame_registro, text=s, variable=self.sorteo_registro_var, value=s).grid(row=0, column=i, padx=5)
 
         ttk.Label(registrar, text="Ganador:").grid(row=2, column=0, padx=5, pady=5, sticky="w")
         self.ganador_numero_var = tk.StringVar()
         self.ganador_numero_entry = ttk.Entry(registrar, textvariable=self.ganador_numero_var, width=10)
-        self.ganador_numero_entry.grid(row=2, column=1, padx=5)
+        self.ganador_numero_entry.grid(row=2, column=1, padx=5, pady=5, sticky="w")
         self.ganador_numero_entry.bind("<Return>", lambda e: self.registrar_ganador_gui())
 
         ttk.Button(registrar, text="Registrar", command=self.registrar_ganador_gui, style="Accent.TButton").grid(row=3, column=0, columnspan=2, pady=8)
@@ -2302,13 +2302,14 @@ class AppLoteria:
         consultar.pack(fill="x", padx=5, pady=5)
 
         ttk.Label(consultar, text="Fecha:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ttk.Label(consultar, text="Sorteo:").grid(row=0, column=1, padx=5, pady=5, sticky="w")
+
         self.date_entry_consulta = DateEntry(consultar, width=12, date_pattern='yyyy-mm-dd')
-        self.date_entry_consulta.grid(row=0, column=1, padx=5, pady=(5, 15))
-        ttk.Label(consultar, text="Sorteo:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.date_entry_consulta.grid(row=1, column=0, padx=5, pady=5, sticky="w")
 
         self.sorteo_consulta_var = tk.StringVar(value="11 AM")
         self.sorteo_radio_frame_consulta = ttk.Frame(consultar)
-        self.sorteo_radio_frame_consulta.grid(row=1, column=1, padx=5)
+        self.sorteo_radio_frame_consulta.grid(row=1, column=1, padx=5, pady=5, sticky="w")
         for i, s in enumerate(self.sorteo_options_all):
             ttk.Radiobutton(self.sorteo_radio_frame_consulta, text=s, variable=self.sorteo_consulta_var, value=s).grid(row=0, column=i, padx=5)
 
@@ -2360,6 +2361,8 @@ class AppLoteria:
                 self.root.after(1000, verificar_sorteos_paned_positions)
 
         self.root.after(1000, verificar_sorteos_paned_positions)
+
+
 
     def crear_widgets_tab_reportes(self):
         self.report_type = tk.StringVar(value="diario")
