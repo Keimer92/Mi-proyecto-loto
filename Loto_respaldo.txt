@@ -863,6 +863,13 @@ class AppLoteria:
 
         # Opciones de sorteos globales
         self.sorteo_options_all = ('11 AM', '03 PM', '06 PM', '09 PM')
+        self.meses_map = {
+            "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+            "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+            "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+        }
+        self.meses_map_reverse = {v: k for k, v in self.meses_map.items()}
+
 
         # Variables para la pestaña de ventas
         self.numero_var = tk.StringVar()
@@ -1671,6 +1678,53 @@ class AppLoteria:
         
 
 
+    def guardar_sashes_generico(self, paned_widget, clave_sqlite, nombre_amigable="Panel"):
+        self.root.update_idletasks()
+        total_width = paned_widget.winfo_width()
+        frames = paned_widget.panes()
+        if total_width <= 1 or len(frames) < 2:
+            print(f"⏳ PanedWindow '{clave_sqlite}' no está listo.")
+            return
+
+        proporciones = []
+        for frame_id in frames:
+            try:
+                ancho = self.root.nametowidget(frame_id).winfo_width()
+                proporciones.append(round(ancho / total_width, 4))
+            except Exception as e:
+                print(f"⚠️ Error al medir '{frame_id}': {e}")
+
+        posiciones = [round(sum(proporciones[:i+1]), 4) for i in range(len(proporciones) - 1)]
+        guardar_configuracion_ui_db(clave_sqlite, json.dumps(posiciones))
+        print(f"💾 Sashes guardadas para '{clave_sqlite}': {posiciones}")
+        messagebox.showinfo("Distribución Guardada", f"✅ Distribución de {nombre_amigable} guardada:\n{posiciones}")
+
+
+    def restaurar_sashes_generico(self, paned_widget, clave_sqlite, posiciones_por_defecto=[0.3, 0.7], nombre_amigable="Panel"):
+        guardar_configuracion_ui_db(clave_sqlite, json.dumps(posiciones_por_defecto))
+        self.aplicar_posiciones_sashes(paned_widget, clave_sqlite)
+        messagebox.showinfo("Distribución Restaurada", f"♻️ Distribución de {nombre_amigable} restaurada.")
+
+
+    def aplicar_posiciones_sashes(self, paned_widget, clave_sqlite):
+        self.root.update_idletasks()
+        total_width = paned_widget.winfo_width()
+        sash_json = cargar_configuracion_ui_db(clave_sqlite)
+
+        if not sash_json or total_width <= 1:
+            print(f"⏳ No hay posiciones para '{clave_sqlite}' o el ancho es insuficiente.")
+            return
+
+        try:
+            posiciones = json.loads(sash_json)
+            for i, frac in enumerate(posiciones):
+                x = int(frac * total_width)
+                paned_widget.sashpos(i, x)
+            print(f"📐 Posiciones aplicadas para '{clave_sqlite}': {posiciones}")
+        except Exception as e:
+            print(f"❌ Error aplicando sashes '{clave_sqlite}': {e}")
+
+
     def actualizar_historial_treeview(self):
         numero = self.numero_busqueda_var.get().zfill(2)
         if not numero.isdigit() or not (0 <= int(numero) <= 99):
@@ -2133,6 +2187,13 @@ class AppLoteria:
 
         # --- NUEVO: Controlar divisores manualmente ---
         frame_divisores = ttk.LabelFrame(self.tab_configuracion, text="Distribución de la Pestaña Ventas")
+        # 🔹 Divisores para Reportes
+        ttk.Label(frame_divisores, text="⬇️ Distribuciones por pestaña:").pack(anchor="w", padx=10, pady=(10, 0))
+        ttk.Button(frame_divisores, text="📥 Guardar Distribución de Reportes", style="Accent.TButton",
+            command=lambda: self.guardar_sashes_generico(self.paned_reportes, "reportes_paned_sash_positions", "Reportes")).pack(padx=10, pady=5, fill="x")
+
+        ttk.Button(frame_divisores, text="♻️ Restaurar Distribución de Reportes", style="Accent.TButton",
+            command=lambda: self.restaurar_sashes_generico(self.paned_reportes, "reportes_paned_sash_positions", [0.3, 0.7], "Reportes")).pack(padx=10, pady=5, fill="x")
         frame_divisores.pack(padx=15, pady=10, fill="x", expand=True)
 
         ttk.Button(frame_divisores, text="📥 Guardar Distribución Actual", style="Accent.TButton",
@@ -2271,150 +2332,176 @@ class AppLoteria:
         self.tree_ganadores.column("Número Ganador", width=120, anchor="center")
     
     def crear_widgets_tab_reportes(self):
-        # Variables para la pestaña de reportes
         self.report_type = tk.StringVar(value="diario")
-        # <<< CAMBIO INICIADO: Crear variables para fecha de inicio y fin.
+        self.report_data_type_var = tk.StringVar(value="Ventas")
         self.report_start_date_var = tk.StringVar(value=datetime.now().strftime('%Y-%m-%d'))
         self.report_end_date_var = tk.StringVar(value=datetime.now().strftime('%Y-%m-%d'))
-        # <<< CAMBIO FINALIZADO
-        self.report_data_type_var = tk.StringVar(value="Ventas") # Nuevo: "Ventas" o "Ganadores"
-        
-        # Diccionario para mapear números de mes a nombres de mes
-        self.meses_map = {
+        current_month_num = datetime.now().strftime('%m')
+        self.report_month_var = tk.StringVar(value={
             "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
             "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
             "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
-        }
-        self.meses_map_reverse = {v: k for k, v in self.meses_map.items()} # Para obtener el número desde el nombre
-        
-        # Mes actual en letras por defecto
-        current_month_num = datetime.now().strftime('%m')
-        self.report_month_var = tk.StringVar(value=self.meses_map[current_month_num]) 
-        
-        self.report_year_var = tk.StringVar(value=str(datetime.now().year))   # Año actual por defecto
+        }[current_month_num])
+        self.report_year_var = tk.StringVar(value=str(datetime.now().year))
         self.report_sorteo_var = tk.StringVar(value="Todos")
-        self.sorteo_options_reportes = ('Todos',) + self.sorteo_options_all
+        self.sorteo_options_reportes = ("Todos", "11 AM", "03 PM", "06 PM", "09 PM")
 
-        # Frame de Controles de Reporte
-        self.frame_controles_reporte = ttk.LabelFrame(self.tab_reportes, text="Filtros de Reporte")
-        self.frame_controles_reporte.grid(row=0, column=0, padx=15, pady=10, sticky="ew")
-        self.tab_reportes.columnconfigure(0, weight=1) # Allow this column to expand
+        # --- PanedWindow principal ---
+        self.paned_reportes = ttk.PanedWindow(self.tab_reportes, orient=tk.HORIZONTAL)
+        self.paned_reportes.pack(fill="both", expand=True, padx=10, pady=10)
 
+        # --- Filtros (lado izquierdo) ---
+        self.frame_controles_reporte = ttk.LabelFrame(self.paned_reportes, text="Filtros de Reporte")
+        self.paned_reportes.add(self.frame_controles_reporte, weight=1)
 
-        # Radiobuttons para TIPO DE REPORTE (Ventas o Ganadores)
-        ttk.Label(self.frame_controles_reporte, text="Datos a Reportar:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controles_reporte, text="Ventas", variable=self.report_data_type_var, value="Ventas", command=self.generar_reporte_gui).grid(row=0, column=1, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controles_reporte, text="Ganadores", variable=self.report_data_type_var, value="Ganadores", command=self.generar_reporte_gui).grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        # Tipo de datos
+        filtros_tipo_datos = ttk.LabelFrame(self.frame_controles_reporte, text="Tipo de Datos")
+        filtros_tipo_datos.grid(row=0, column=0, columnspan=5, padx=5, pady=5, sticky="ew")
+        ttk.Radiobutton(filtros_tipo_datos, text="Ventas", variable=self.report_data_type_var, value="Ventas").grid(row=0, column=0, padx=10, pady=5)
+        ttk.Radiobutton(filtros_tipo_datos, text="Ganadores", variable=self.report_data_type_var, value="Ganadores").grid(row=0, column=1, padx=10, pady=5)
 
-        # Radiobuttons para TIPO DE PERÍODO (Diario, Semanal, Mensual, Por Fecha)
-        ttk.Label(self.frame_controles_reporte, text="Tipo de Período:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controles_reporte, text="Diario", variable=self.report_type, value="diario", command=self.on_report_type_change).grid(row=1, column=1, padx=5, pady=5, sticky="w") 
-        ttk.Radiobutton(self.frame_controles_reporte, text="Semanal", variable=self.report_type, value="semanal", command=self.on_report_type_change).grid(row=1, column=2, padx=5, pady=5, sticky="w") 
-        ttk.Radiobutton(self.frame_controles_reporte, text="Mensual", variable=self.report_type, value="mensual", command=self.on_report_type_change).grid(row=1, column=3, padx=5, pady=5, sticky="w") 
-        ttk.Radiobutton(self.frame_controles_reporte, text="Por Rango de Fechas", variable=self.report_type, value="por_fecha", command=self.on_report_type_change).grid(row=1, column=4, padx=5, pady=5, sticky="w") 
+        # Período
+        filtros_periodo = ttk.LabelFrame(self.frame_controles_reporte, text="Período")
+        filtros_periodo.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky="ew")
+        for i, (texto, valor) in enumerate([("Diario", "diario"), ("Semanal", "semanal"), ("Mensual", "mensual"), ("Por Rango", "por_fecha")]):
+            ttk.Radiobutton(filtros_periodo, text=texto, variable=self.report_type, value=valor, command=self.on_report_type_change).grid(row=0, column=i, padx=10, pady=5)
 
-        # <<< CAMBIO INICIADO: Crear widgets para fecha de inicio y fin.
-        self.lbl_fecha_inicial = ttk.Label(self.frame_controles_reporte, text="Fecha Inicial:")
-        self.date_entry_reporte_inicio = DateEntry(self.frame_controles_reporte, width=12, background='darkblue',
-                                             foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                             textvariable=self.report_start_date_var)
+        # Fechas
+        self.filtros_fechas = ttk.LabelFrame(self.frame_controles_reporte, text="Fechas")
+        self.filtros_fechas.grid(row=2, column=0, columnspan=5, padx=5, pady=5, sticky="ew")
 
-        self.lbl_fecha_final = ttk.Label(self.frame_controles_reporte, text="Fecha Final:")
-        self.date_entry_reporte_fin = DateEntry(self.frame_controles_reporte, width=12, background='darkblue',
-                                             foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                             textvariable=self.report_end_date_var)
-        # <<< CAMBIO FINALIZADO
+        self.lbl_fecha_inicial = ttk.Label(self.filtros_fechas, text="Fecha Inicial:")
+        self.date_entry_reporte_inicio = DateEntry(self.filtros_fechas, textvariable=self.report_start_date_var, date_pattern='yyyy-mm-dd', width=12)
 
-        # --- Widgets para selección de mes y año (Combobox) ---
-        self.lbl_mes_reporte = ttk.Label(self.frame_controles_reporte, text="Mes:") # Etiqueta correcta para el mes
-        self.lbl_year_reporte = ttk.Label(self.frame_controles_reporte, text="Año:")
+        self.lbl_fecha_final = ttk.Label(self.filtros_fechas, text="Fecha Final:")
+        self.date_entry_reporte_fin = DateEntry(self.filtros_fechas, textvariable=self.report_end_date_var, date_pattern='yyyy-mm-dd', width=12)
 
-        # Ahora el ComboBox de meses usará los nombres de los meses
-        meses_nombres = list(self.meses_map.values())
-        self.combo_mes_reporte = ttk.Combobox(self.frame_controles_reporte, textvariable=self.report_month_var, values=meses_nombres, state="readonly", width=10)
-        
-        current_year = datetime.now().year
-        años = [str(y) for y in range(current_year - 5, current_year + 2)] # Rango de 5 años atrás a 1 año adelante
-        self.combo_year_reporte = ttk.Combobox(self.frame_controles_reporte, textvariable=self.report_year_var, values=años, state="readonly", width=7)
+        self.lbl_mes_reporte = ttk.Label(self.filtros_fechas, text="Mes:")
+        self.report_month_var = tk.StringVar(value="Enero")
+        self.combo_mes_reporte = ttk.Combobox(self.filtros_fechas, textvariable=self.report_month_var, values=list(self.meses_map.values()), state="readonly", width=10)
 
-        # --- Radiobuttons para Sorteo en Reportes ---
-        self.lbl_sorteo_reporte = ttk.Label(self.frame_controles_reporte, text="Sorteo:") # Nueva etiqueta para Sorteo
-        self.sorteo_radio_frame_reportes = ttk.Frame(self.frame_controles_reporte)
-        for i, sorteo in enumerate(self.sorteo_options_reportes):
-            rb = ttk.Radiobutton(self.sorteo_radio_frame_reportes, text=sorteo, variable=self.report_sorteo_var, value=sorteo)
-            rb.grid(row=0, column=i, padx=5, pady=2)
-            self.sorteo_radio_frame_reportes.grid_columnconfigure(i, weight=1)
-        
-        # Columna de la derecha se expande para el combo de año (si aplica)
-        self.frame_controles_reporte.grid_columnconfigure(4, weight=1) 
+        self.lbl_year_reporte = ttk.Label(self.filtros_fechas, text="Año:")
+        self.combo_year_reporte = ttk.Combobox(self.filtros_fechas, textvariable=self.report_year_var, values=[str(y) for y in range(datetime.now().year - 5, datetime.now().year + 2)], state="readonly", width=8)
 
+        # Sorteo y botón se insertan dinámicamente en on_report_type_change
+
+        # --- Resultados (lado derecho) ---
+        frame_resultado = ttk.Frame(self.paned_reportes)
+        self.paned_reportes.add(frame_resultado, weight=3)
+
+        self.tree_reportes = ttk.Treeview(
+            frame_resultado,
+            columns=("Numero", "Sorteo", "Apuesta", "Premio", "Ultima"),
+            show="headings"
+        )
+        self.tree_reportes.heading("Numero", text="Número")
+        self.tree_reportes.heading("Sorteo", text="Sorteo")
+        self.tree_reportes.heading("Apuesta", text="Apuesta Total (C$)")
+        self.tree_reportes.heading("Premio", text="Premio Total (C$)")
+        self.tree_reportes.heading("Ultima", text="Última Modificación")
+
+        self.tree_reportes.column("Numero", width=80, anchor="center")
+        self.tree_reportes.column("Sorteo", width=100, anchor="center")
+        self.tree_reportes.column("Apuesta", width=120, anchor="center")
+        self.tree_reportes.column("Premio", width=120, anchor="center")
+        self.tree_reportes.column("Ultima", width=150, anchor="center")
+        self.tree_reportes.pack(fill="both", expand=True, padx=5, pady=5)
+
+        # --- Persistencia visual ---
+        self.persistir_anchos_treeview(
+            treeview_widget=self.tree_reportes,
+            clave_sqlite="reportes_columnas",
+            columnas=["Numero", "Sorteo", "Apuesta", "Premio", "Ultima"]
+        )
+
+        self.root.after(200, lambda: self.aplicar_posiciones_sashes(self.paned_reportes, "reportes_paned_sash_positions"))
+        self._reportes_paned_sashes = []
+
+        def verificar_reportes_paned_positions():
+            try:
+                self.root.update_idletasks()
+                total_width = self.paned_reportes.winfo_width()
+                if total_width <= 1:
+                    self.root.after(1000, verificar_reportes_paned_positions)
+                    return
+
+                panes = self.paned_reportes.panes()
+                proporciones = [round(self.root.nametowidget(p).winfo_width() / total_width, 4) for p in panes]
+                posiciones = [round(sum(proporciones[:i+1]), 4) for i in range(len(proporciones) - 1)]
+
+                if posiciones != self._reportes_paned_sashes:
+                    self._reportes_paned_sashes = posiciones
+                    guardar_configuracion_ui_db("reportes_paned_sash_positions", json.dumps(posiciones))
+                    print(f"💾 Posiciones actualizadas para PanedWindow Reportes: {posiciones}")
+
+                self.root.after(1000, verificar_reportes_paned_positions)
+            except Exception as e:
+                print(f"❌ Error monitoreando sashes: {e}")
+                self.root.after(1000, verificar_reportes_paned_positions)
+
+        self.root.after(1000, verificar_reportes_paned_positions)
+
+        # 🧠 Inicializa los filtros según el tipo de reporte actual
         self.btn_generar_reporte = ttk.Button(self.frame_controles_reporte, text="Generar Reporte", command=self.generar_reporte_gui)
-
-        # Área de Texto para el Reporte
-        self.report_text_area = scrolledtext.ScrolledText(self.tab_reportes, wrap=tk.WORD, width=80, height=20, font=("Courier New", 9)) # Fuente monoespaciada para mejor alineación en texto
-        self.report_text_area.grid(row=1, column=0, padx=15, pady=10, sticky="nsew")
-        self.tab_reportes.rowconfigure(1, weight=1) # Make this row expand vertically
-
-        # Botones de Exportar/Imprimir
-        self.frame_export_print = ttk.Frame(self.tab_reportes)
-        self.frame_export_print.grid(row=2, column=0, pady=5, sticky="ew")
-
-        ttk.Button(self.frame_export_print, text="Exportar a Excel", command=self.exportar_reporte_excel).pack(
-        side=tk.LEFT, padx=10, expand=True, fill="x")
-
-              
-        ttk.Button(self.frame_export_print, text="Exportar a PDF", command=self.exportar_reporte_a_pdf, style='Accent.TButton').pack(side=tk.LEFT, padx=10, expand=True, fill="x")
-        ttk.Button(self.frame_export_print, text="Imprimir Reporte", command=self.imprimir_reporte_gui).pack(side=tk.LEFT, padx=10, expand=True, fill="x")
-
-        # Llamar a la función para configurar la visibilidad inicial
         self.on_report_type_change()
 
+
+
+
     def on_report_type_change(self):
-        """Ajusta la visibilidad y posición de los selectores de fecha/mes/año y el botón de reporte."""
+        """Ajusta la visibilidad y posición de filtros según el tipo de período."""
+
         report_type = self.report_type.get()
 
-        # <<< CAMBIO INICIADO: Ocultar los widgets de rango de fechas.
-        self.lbl_fecha_inicial.grid_remove()
-        self.date_entry_reporte_inicio.grid_remove()
-        self.lbl_fecha_final.grid_remove()
-        self.date_entry_reporte_fin.grid_remove()
-        # <<< CAMBIO FINALIZADO
-        self.lbl_mes_reporte.grid_remove()
-        self.combo_mes_reporte.grid_remove()
-        self.lbl_year_reporte.grid_remove()
-        self.combo_year_reporte.grid_remove()
-        self.lbl_sorteo_reporte.grid_remove() # Ocultar la etiqueta de sorteo
-        self.sorteo_radio_frame_reportes.grid_remove() # Ocultar los radiobuttons de sorteo
+        # 🧼 1. Oculta todos los controles de fecha/mes/año
+        for widget in [
+            self.lbl_fecha_inicial, self.date_entry_reporte_inicio,
+            self.lbl_fecha_final, self.date_entry_reporte_fin,
+            self.lbl_mes_reporte, self.combo_mes_reporte,
+            self.lbl_year_reporte, self.combo_year_reporte
+        ]:
+            widget.grid_remove()
 
-        # La fila de "Datos a Reportar" es la 0.
-        # La fila de "Tipo de Período" es la 1.
-        # current_row indicará la próxima fila disponible después de la fila 1.
-        current_row = 2 
+        # 🧼 2. Elimina el grupo "Sorteo" anterior si existe
+        for child in self.frame_controles_reporte.winfo_children():
+            if isinstance(child, ttk.LabelFrame) and child.cget("text") == "Sorteo":
+                child.destroy()
 
-        # <<< CAMBIO INICIADO: Mostrar los widgets de rango de fechas si es necesario.
+        # 📐 3. Posiciona los controles según el tipo de reporte
+        row_actual = 2  # Base para posicionar debajo de los grupos previos
+
         if report_type == "por_fecha":
-            self.lbl_fecha_inicial.grid(row=current_row, column=0, padx=5, pady=5, sticky="w")
-            self.date_entry_reporte_inicio.grid(row=current_row, column=1, padx=5, pady=5, sticky="ew")
-            self.lbl_fecha_final.grid(row=current_row, column=2, padx=5, pady=5, sticky="w")
-            self.date_entry_reporte_fin.grid(row=current_row, column=3, padx=5, pady=5, sticky="ew")
-            current_row += 1 
-        # <<< CAMBIO FINALIZADO
+            self.lbl_fecha_inicial.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+            self.date_entry_reporte_inicio.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+
+            self.lbl_fecha_final.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+            self.date_entry_reporte_fin.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+            row_actual += 2
+
         elif report_type == "mensual":
-            self.lbl_mes_reporte.grid(row=current_row, column=0, padx=5, pady=5, sticky="w")
-            self.combo_mes_reporte.grid(row=current_row, column=1, padx=5, pady=5, sticky="w")
-            self.lbl_year_reporte.grid(row=current_row, column=2, padx=5, pady=5, sticky="w")
-            self.combo_year_reporte.grid(row=current_row, column=3, padx=5, pady=5, sticky="w")
-            current_row += 1 
+            self.lbl_mes_reporte.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+            self.combo_mes_reporte.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
-        # Colocar la etiqueta "Sorteo:" y los radiobuttons de sorteo en la siguiente fila.
-        self.lbl_sorteo_reporte.grid(row=current_row, column=0, padx=5, pady=5, sticky="w")
-        self.sorteo_radio_frame_reportes.grid(row=current_row, column=1, columnspan=4, padx=5, pady=5, sticky="ew")
-        
-        current_row += 1 # Avanzar a la siguiente fila para el botón
+            self.lbl_year_reporte.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+            self.combo_year_reporte.grid(row=1, column=1, padx=5, pady=5, sticky="w")
 
-        # Colocar el botón "Generar Reporte"
-        self.btn_generar_reporte.grid(row=current_row, column=0, columnspan=5, pady=15)
-        self.generar_reporte_gui() # Regenerar el reporte al cambiar los filtros
+            row_actual += 2
+
+        # 🎰 4. Agregar grupo "Sorteo"
+        filtros_sorteo = ttk.LabelFrame(self.frame_controles_reporte, text="Sorteo")
+        filtros_sorteo.grid(row=row_actual, column=0, columnspan=5, padx=5, pady=10, sticky="ew")
+        for i, sorteo in enumerate(self.sorteo_options_reportes):
+            ttk.Radiobutton(filtros_sorteo, text=sorteo, variable=self.report_sorteo_var, value=sorteo).grid(row=0, column=i, padx=10, pady=5)
+
+        row_actual += 1
+
+        # 📤 5. Posicionar el botón de reporte
+        self.btn_generar_reporte.grid(row=row_actual, column=0, columnspan=5, pady=10)
+
+        # 🔄 6. Actualiza el contenido del reporte
+        self.generar_reporte_gui()
+
 
     def on_tab_change(self, event):
         pestaña_actual = self.notebook.tab(self.notebook.select(), "text")
@@ -2895,27 +2982,28 @@ class AppLoteria:
                     return
             except ValueError:
                 messagebox.showerror("Error de Fecha", "Formato de fecha inválido.")
-                self.report_text_area.config(state=tk.NORMAL)
-                self.report_text_area.delete(1.0, tk.END)
-                self.report_text_area.insert(tk.END, "Formato de fecha inválido. Seleccione una fecha válida.")
-                self.report_text_area.config(state=tk.DISABLED)
+                self.tree_reportes.delete(*self.tree_reportes.get_children())
+                for fila in self.report_data:
+                    self.tree_reportes.insert("", "end", values=fila)
                 self.report_data = []
                 self.report_type_data = None
                 return
         # <<< CAMBIO FINALIZADO
         elif tipo_periodo == "mensual":
             mes_nombre_seleccionado = self.report_month_var.get()
-            mes_numero_seleccionado = self.meses_map_reverse.get(mes_nombre_seleccionado) 
+            self.meses_map = {
+                "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+                "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+                "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+            }
+            self.meses_map_reverse = {v: k for k, v in self.meses_map.items()}
             anio_seleccionado = self.report_year_var.get()
             if not mes_numero_seleccionado or not anio_seleccionado:
                 messagebox.showwarning("Advertencia", "Por favor, seleccione el mes y el año para el reporte mensual.")
-                self.report_text_area.config(state=tk.NORMAL)
-                self.report_text_area.delete(1.0, tk.END)
-                self.report_text_area.insert(tk.END, "Por favor, seleccione un mes y año.")
-                self.report_text_area.config(state=tk.DISABLED)
-                self.report_data = []
+                self.tree_reportes.delete(*self.tree_reportes.get_children())
                 self.report_type_data = None
                 return
+
 
         # Fetch data based on selected data type
         if tipo_datos == "Ventas":
@@ -2943,8 +3031,18 @@ class AppLoteria:
             # <<< CAMBIO FINALIZADO
             self.report_type_data = "Ganadores"
 
-        self.report_text_area.config(state=tk.NORMAL)
-        self.report_text_area.delete(1.0, tk.END)
+        self.tree_reportes.delete(*self.tree_reportes.get_children())
+        for fila in self.report_data:
+            numero, apuesta_total, premio_total, _, sorteo_hora, ultima_mod = fila
+            self.tree_reportes.insert("", "end", values=(
+                numero,
+                sorteo_hora,
+                f"C${apuesta_total:,.0f}",
+                f"C${premio_total:,.0f}",
+                ultima_mod
+            ))
+
+
 
         # <<< CAMBIO INICIADO: Actualizar el mapa de títulos para el rango de fechas.
         titulo_map = {
@@ -2964,7 +3062,6 @@ class AppLoteria:
 
         if not self.report_data:
             self.report_content = f"No hay {tipo_datos.lower()} registradas para el {titulo_base} en el período/filtros seleccionados."
-            self.report_text_area.insert(tk.END, self.report_content)
         else:
             self.report_content += f"--- {titulo_base} ---\n\n"
 
@@ -3060,10 +3157,7 @@ class AppLoteria:
 
                 conn.close()
                 
-            self.report_text_area.delete(1.0, tk.END)
-            self.report_text_area.insert(tk.END, self.report_content)
-        self.report_text_area.config(state=tk.DISABLED)
-
+            
     def exportar_reporte_a_pdf(self):
         """Exporta el contenido actual del reporte a un archivo PDF en la subcarpeta 'Reportes',
         con nombre de archivo basado en la fecha y hora, y lo abre automáticamente,
