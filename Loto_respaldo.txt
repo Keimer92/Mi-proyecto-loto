@@ -2119,18 +2119,38 @@ class AppLoteria:
 
 
     def crear_widgets_tab_configuracion(self):
-        # Frame para acciones principales (movido de la pestaña de ventas)
-        self.frame_acciones = ttk.LabelFrame(self.tab_configuracion, text="Acciones Generales")
-        self.frame_acciones.pack(padx=15, pady=10, fill="x", expand=True)
-        
-        # --- Frame para cambiar tema ---
-        self.frame_selector_tema = ttk.LabelFrame(self.tab_configuracion, text="Tema de la Aplicación")
-        self.frame_selector_tema.pack(padx=15, pady=10, fill="x", expand=True)
+        # 🔳 PanedWindow principal
+        self.paned_configuracion = ttk.PanedWindow(self.tab_configuracion, orient=tk.HORIZONTAL)
+        self.paned_configuracion.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # 🧩 Panel izquierdo: acciones generales
+        frame_izquierdo = ttk.Frame(self.paned_configuracion)
+        self.paned_configuracion.add(frame_izquierdo, weight=1)
+
+        # 🔧 Acciones generales
+        self.frame_acciones = ttk.LabelFrame(frame_izquierdo, text="Acciones Generales")
+        self.frame_acciones.pack(fill="x", padx=15, pady=10)
+
+        self.btn_importar_ventas = ttk.Button(
+            self.frame_acciones,
+            text="Importar ventas desde archivo",
+            command=self.importar_ventas_externas
+        )
+        self.btn_importar_ventas.pack(pady=10, fill="x", padx=20)
+
+        self.btn_cambiar_clave = ttk.Button(
+            self.frame_acciones,
+            text="Cambiar Clave de Acceso",
+            command=self.mostrar_ventana_cambiar_clave
+        )
+        self.btn_cambiar_clave.pack(pady=10, fill="x", padx=20)
+
+        # 🎨 Tema
+        self.frame_selector_tema = ttk.LabelFrame(frame_izquierdo, text="Tema de la Aplicación")
+        self.frame_selector_tema.pack(fill="x", padx=15, pady=10)
 
         ttk.Label(self.frame_selector_tema, text="Seleccionar Tema:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-
-        # Obtener todos los temas disponibles (nativos + azure si ya se cargó)
-        temas_disponibles = list(self.style.theme_names())  # ['clam', 'alt', 'default', ...]
+        temas_disponibles = list(self.style.theme_names())
         self.tema_actual_var = tk.StringVar(value=self.style.theme_use())
 
         self.combo_temas = ttk.Combobox(
@@ -2151,61 +2171,64 @@ class AppLoteria:
 
         self.frame_selector_tema.columnconfigure(1, weight=1)
 
+        # 💰 Premio por C$1
+        self.frame_config_premio = ttk.LabelFrame(frame_izquierdo, text="Configurar Premio por C$1")
+        self.frame_config_premio.pack(fill="x", padx=15, pady=10)
 
-        #Boton para importar bases de datos
-        self.btn_importar_ventas = ttk.Button(
-            self.frame_acciones,
-            text="Importar ventas desde archivo",
-            command=self.importar_ventas_externas
-        )
-        self.btn_importar_ventas.pack(pady=10, fill="x", padx=20)
-
-
-        # --- Nuevo: Frame para configurar el premio por cada 5 ---
-        self.frame_config_premio = ttk.LabelFrame(self.tab_configuracion, text="Configurar Premio por C$1")
-        self.frame_config_premio.pack(padx=15, pady=10, fill="x", expand=True)
-
-        ttk.Label(self.frame_config_premio, text="Premio por cada C$1 apostados:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.premio_por_cordoba_var = tk.StringVar(value=str(obtener_premio_por_cordoba_db())) # Carga el valor actual
+        ttk.Label(self.frame_config_premio, text="Premio por cada C$1 apostado:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.premio_por_cordoba_var = tk.StringVar(value=str(obtener_premio_por_cordoba_db()))
         self.entry_premio_por_cordoba = ttk.Entry(self.frame_config_premio, textvariable=self.premio_por_cordoba_var, font=("Arial", 11))
         self.entry_premio_por_cordoba.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
 
         self.btn_guardar_premio = ttk.Button(self.frame_config_premio, text="Guardar Premio", command=self.guardar_premio_por_cordoba)
         self.btn_guardar_premio.grid(row=1, column=0, columnspan=2, pady=10)
 
-        self.frame_config_premio.columnconfigure(1, weight=1) # Permite que el campo de entrada se expanda
-        
-        self.btn_salir = ttk.Button(self.frame_acciones, text="Salir", command=self.root.quit)
-        self.btn_salir.pack(pady=10, fill="x", padx=20)
-        
-        self.btn_cambiar_clave = ttk.Button(
-        self.frame_acciones,
-        text="Cambiar Clave de Acceso",
-        command=self.mostrar_ventana_cambiar_clave
-        )
-        self.btn_cambiar_clave.pack(pady=10, fill="x", padx=20)
+        self.frame_config_premio.columnconfigure(1, weight=1)
 
-        # --- NUEVO: Controlar divisores manualmente ---
-        frame_divisores = ttk.LabelFrame(self.tab_configuracion, text="Distribución de la Pestaña Ventas")
-        # 🔹 Divisores para Reportes
-        ttk.Label(frame_divisores, text="⬇️ Distribuciones por pestaña:").pack(anchor="w", padx=10, pady=(10, 0))
-        ttk.Button(frame_divisores, text="📥 Guardar Distribución de Reportes", style="Accent.TButton",
+        # 📐 Panel derecho: Distribuciones visuales
+        frame_derecho = ttk.LabelFrame(self.paned_configuracion, text="Distribución Visual")
+        self.paned_configuracion.add(frame_derecho, weight=1)
+
+        ttk.Label(frame_derecho, text="⬇️ Distribuciones de Ventas:").pack(anchor="w", padx=10, pady=(10, 0))
+
+        # Ventas
+        ttk.Button(frame_derecho, text="📥 Guardar Distribución de Ventas", style="Accent.TButton",
+            command=lambda: self.guardar_distribucion_manual()).pack(padx=10, pady=5, fill="x")
+
+        ttk.Button(frame_derecho, text="♻️ Restaurar Distribución de Ventas", style="Accent.TButton",
+            command=lambda: self.restaurar_distribucion_predeterminada()).pack(padx=10, pady=5, fill="x")
+
+        # Reportes
+        ttk.Separator(frame_derecho, orient="horizontal").pack(fill="x", padx=10, pady=(10, 5))
+        ttk.Label(frame_derecho, text="⬇️ Distribuciones de Reportes:").pack(anchor="w", padx=10, pady=(5, 0))
+
+        ttk.Button(frame_derecho, text="📥 Guardar Distribución de Reportes", style="Accent.TButton",
             command=lambda: self.guardar_sashes_generico(self.paned_reportes, "reportes_paned_sash_positions", "Reportes")).pack(padx=10, pady=5, fill="x")
 
-        ttk.Button(frame_divisores, text="♻️ Restaurar Distribución de Reportes", style="Accent.TButton",
+        ttk.Button(frame_derecho, text="♻️ Restaurar Distribución de Reportes", style="Accent.TButton",
             command=lambda: self.restaurar_sashes_generico(self.paned_reportes, "reportes_paned_sash_positions", [0.3, 0.7], "Reportes")).pack(padx=10, pady=5, fill="x")
-        frame_divisores.pack(padx=15, pady=10, fill="x", expand=True)
 
-        ttk.Button(frame_divisores, text="📥 Guardar Distribución Actual", style="Accent.TButton",
-                command=self.guardar_distribucion_manual).pack(padx=10, pady=5, fill="x")
+        # Sorteos
+        ttk.Separator(frame_derecho, orient="horizontal").pack(fill="x", padx=10, pady=(10, 5))
+        ttk.Label(frame_derecho, text="⬇️ Distribuciones de Sorteos:").pack(anchor="w", padx=10, pady=(5, 0))
 
-        ttk.Button(frame_divisores, text="♻️ Restaurar Distribución Predeterminada", style="Accent.TButton",
-                command=self.restaurar_distribucion_predeterminada).pack(padx=10, pady=5, fill="x")
+        ttk.Button(frame_derecho, text="📥 Guardar Distribución de Sorteos", style="Accent.TButton",
+            command=lambda: self.guardar_sashes_generico(self.paned_sorteos, "sorteos_paned_sash_positions", "Sorteos")).pack(padx=10, pady=5, fill="x")
+
+        ttk.Button(frame_derecho, text="♻️ Restaurar Distribución de Sorteos", style="Accent.TButton",
+            command=lambda: self.restaurar_sashes_generico(self.paned_sorteos, "sorteos_paned_sash_positions", [0.35, 0.7], "Sorteos")).pack(padx=10, pady=5, fill="x")
+
+        # Restaurar todo
+        ttk.Separator(frame_derecho, orient="horizontal").pack(fill="x", padx=10, pady=(10, 5))
+        ttk.Button(frame_derecho, text="🧹 Restaurar Todas las Distribuciones", style="Danger.TButton",
+            command=self.restaurar_todas_las_distribuciones).pack(padx=10, pady=5, fill="x")
 
 
-        # Opcional: Centrar el contenido en la pestaña de configuración
-        self.tab_configuracion.grid_columnconfigure(0, weight=1) # Make the column expandable
-        self.tab_configuracion.grid_rowconfigure(0, weight=1)    # Make the row expandable
+    def restaurar_todas_las_distribuciones(self):
+        self.restaurar_sashes_generico(self.paned_reportes, "reportes_paned_sash_positions", [0.3, 0.7], "Reportes")
+        self.restaurar_sashes_generico(self.paned_sorteos, "sorteos_paned_sash_positions", [0.35, 0.7], "Sorteos")
+        self.restaurar_sashes_generico(self.ventas_paned_window, "ventas_paned_sash_positions", [0.25, 0.65], "Ventas")
+        messagebox.showinfo("Distribución Restaurada", "♻️ Todas las distribuciones fueron restauradas exitosamente.")
 
 
 
@@ -2242,95 +2265,102 @@ class AppLoteria:
 
 
     def crear_widgets_tab_sorteos(self):
-        # Variables para la pestaña de sorteos
+        # --- PanedWindow horizontal ---
+        self.paned_sorteos = ttk.PanedWindow(self.tab_sorteos, orient=tk.HORIZONTAL)
+        self.paned_sorteos.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # --- Frame para Registrar/Actualizar Ganador ---
-        frame_registrar = ttk.LabelFrame(self.tab_sorteos, text="Registrar/Actualizar Número Ganador")
-        frame_registrar.pack(padx=15, pady=10, fill="x")
+        # --- Filtros de registro y consulta ---
+        self.frame_filtros_sorteos = ttk.LabelFrame(self.paned_sorteos, text="Gestión de Sorteos")
+        self.paned_sorteos.add(self.frame_filtros_sorteos, weight=1)
 
-        ttk.Label(frame_registrar, text="Fecha del Sorteo:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.date_entry_registro = DateEntry(frame_registrar, width=12, background='darkblue',
-                                             foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-        self.date_entry_registro.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        # 🟩 Registrar ganador
+        registrar = ttk.LabelFrame(self.frame_filtros_sorteos, text="Registrar Número Ganador")
+        registrar.pack(fill="x", padx=5, pady=5)
 
-        # --- Radiobuttons para Sorteo en Gestión de Sorteos ---
-        ttk.Label(frame_registrar, text="Sorteo:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self.sorteo_registro_var = tk.StringVar()
-        self.sorteo_registro_var.set(obtener_sorteo_actual_automatico())
-        
-        self.sorteo_radio_frame_registro = ttk.Frame(frame_registrar)
-        self.sorteo_radio_frame_registro.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
-        
-        for i, sorteo in enumerate(self.sorteo_options_all):
-            rb = ttk.Radiobutton(self.sorteo_radio_frame_registro, text=sorteo, variable=self.sorteo_registro_var, value=sorteo)
-            rb.grid(row=0, column=i, padx=5, pady=2)
-        
-        self.sorteo_radio_frame_registro.grid_columnconfigure(0, weight=1)
-        self.sorteo_radio_frame_registro.grid_columnconfigure(1, weight=1)
-        self.sorteo_radio_frame_registro.grid_columnconfigure(2, weight=1)
-        self.sorteo_radio_frame_registro.grid_columnconfigure(3, weight=1)
-        # --- Fin de los Radiobuttons ---
+        ttk.Label(registrar, text="Fecha:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.date_entry_registro = DateEntry(registrar, width=12, date_pattern='yyyy-mm-dd')
+        self.date_entry_registro.grid(row=0, column=1, padx=5, pady=(5, 15))
+        ttk.Label(registrar, text="Sorteo:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
 
-        ttk.Label(frame_registrar, text="Número Ganador (00-99):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
+
+        self.sorteo_registro_var = tk.StringVar(value="11 AM")
+        self.sorteo_radio_frame_registro = ttk.Frame(registrar)
+        self.sorteo_radio_frame_registro.grid(row=1, column=1, padx=5)
+        for i, s in enumerate(self.sorteo_options_all):
+            ttk.Radiobutton(self.sorteo_radio_frame_registro, text=s, variable=self.sorteo_registro_var, value=s).grid(row=0, column=i, padx=5)
+
+        ttk.Label(registrar, text="Ganador:").grid(row=2, column=0, padx=5, pady=5, sticky="w")
         self.ganador_numero_var = tk.StringVar()
-        self.ganador_numero_entry = ttk.Entry(frame_registrar, textvariable=self.ganador_numero_var, width=10, font=("Arial", 12, "bold"))
-        self.ganador_numero_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
-        # Enlazar la tecla Enter al campo de número ganador
-        self.ganador_numero_entry.bind("<Return>", lambda event=None: self.registrar_ganador_gui())
+        self.ganador_numero_entry = ttk.Entry(registrar, textvariable=self.ganador_numero_var, width=10)
+        self.ganador_numero_entry.grid(row=2, column=1, padx=5)
+        self.ganador_numero_entry.bind("<Return>", lambda e: self.registrar_ganador_gui())
 
-        ttk.Button(frame_registrar, text="Registrar/Actualizar Ganador", command=self.registrar_ganador_gui, style='Accent.TButton').grid(row=3, column=0, columnspan=2, pady=10)
+        ttk.Button(registrar, text="Registrar", command=self.registrar_ganador_gui, style="Accent.TButton").grid(row=3, column=0, columnspan=2, pady=8)
 
-        frame_registrar.columnconfigure(1, weight=1)
+        # 🟦 Consultar ganador
+        consultar = ttk.LabelFrame(self.frame_filtros_sorteos, text="Consultar Número Ganador")
+        consultar.pack(fill="x", padx=5, pady=5)
 
-        # --- Frame para Consultar Ganador ---
-        frame_consultar = ttk.LabelFrame(self.tab_sorteos, text="Consultar Número Ganador")
-        frame_consultar.pack(padx=15, pady=10, fill="x")
+        ttk.Label(consultar, text="Fecha:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.date_entry_consulta = DateEntry(consultar, width=12, date_pattern='yyyy-mm-dd')
+        self.date_entry_consulta.grid(row=0, column=1, padx=5, pady=(5, 15))
+        ttk.Label(consultar, text="Sorteo:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
 
-        ttk.Label(frame_consultar, text="Fecha a Consultar:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.date_entry_consulta = DateEntry(frame_consultar, width=12, background='darkblue',
-                                            foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-        self.date_entry_consulta.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        self.sorteo_consulta_var = tk.StringVar(value="11 AM")
+        self.sorteo_radio_frame_consulta = ttk.Frame(consultar)
+        self.sorteo_radio_frame_consulta.grid(row=1, column=1, padx=5)
+        for i, s in enumerate(self.sorteo_options_all):
+            ttk.Radiobutton(self.sorteo_radio_frame_consulta, text=s, variable=self.sorteo_consulta_var, value=s).grid(row=0, column=i, padx=5)
 
-        # --- Radiobuttons para Sorteo en Consultar Ganador ---
-        ttk.Label(frame_consultar, text="Sorteo a Consultar:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self.sorteo_consulta_var = tk.StringVar()
-        self.sorteo_consulta_var.set(obtener_sorteo_actual_automatico())
-        
-        self.sorteo_radio_frame_consulta = ttk.Frame(frame_consultar)
-        self.sorteo_radio_frame_consulta.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        ttk.Button(consultar, text="Consultar", command=self.consultar_ganador_gui).grid(row=2, column=0, padx=5, pady=5)
+        self.lbl_resultado_consulta = ttk.Label(consultar, text="Número Ganador: --", font=("Arial", 11, "bold"))
+        self.lbl_resultado_consulta.grid(row=2, column=1, padx=5)
 
-        for i, sorteo in enumerate(self.sorteo_options_all):
-            rb = ttk.Radiobutton(self.sorteo_radio_frame_consulta, text=sorteo, variable=self.sorteo_consulta_var, value=sorteo)
-            rb.grid(row=0, column=i, padx=5, pady=2)
-
-        self.sorteo_radio_frame_consulta.grid_columnconfigure(0, weight=1)
-        self.sorteo_radio_frame_consulta.grid_columnconfigure(1, weight=1)
-        self.sorteo_radio_frame_consulta.grid_columnconfigure(2, weight=1)
-        self.sorteo_radio_frame_consulta.grid_columnconfigure(3, weight=1)
-        # --- Fin de los Radiobuttons ---
-
-        ttk.Button(frame_consultar, text="Consultar Ganador", command=self.consultar_ganador_gui).grid(row=2, column=0, padx=5, pady=10, sticky="ew")
-        self.lbl_resultado_consulta = ttk.Label(frame_consultar, text="Número Ganador: --", font=("Arial", 12, "bold"))
-        self.lbl_resultado_consulta.grid(row=2, column=1, padx=5, pady=10, sticky="ew")
-        
-        frame_consultar.columnconfigure(1, weight=1)
-
-        # --- Historial de Ganadores ---
-        frame_historial = ttk.LabelFrame(self.tab_sorteos, text="Últimos Ganadores Registrados")
-        frame_historial.pack(padx=15, pady=10, fill="both", expand=True)
+        # 📊 Historial a la derecha
+        frame_historial = ttk.LabelFrame(self.paned_sorteos, text="Últimos Ganadores Registrados")
+        self.paned_sorteos.add(frame_historial, weight=2)
 
         self.tree_ganadores = ttk.Treeview(frame_historial, columns=("Fecha", "Sorteo", "Número Ganador"), show="headings")
-        self.tree_ganadores.pack(padx=5, pady=5, fill="both", expand=True)
-        
+        self.tree_ganadores.pack(fill="both", expand=True, padx=5, pady=5)
 
-        self.tree_ganadores.heading("Fecha", text="Fecha")
-        self.tree_ganadores.heading("Sorteo", text="Sorteo")
-        self.tree_ganadores.heading("Número Ganador", text="Número Ganador")
+        for col in ("Fecha", "Sorteo", "Número Ganador"):
+            self.tree_ganadores.heading(col, text=col)
+            self.tree_ganadores.column(col, width=100, anchor="center")
 
-        self.tree_ganadores.column("Fecha", width=120, anchor="center")
-        self.tree_ganadores.column("Sorteo", width=80, anchor="center")
-        self.tree_ganadores.column("Número Ganador", width=120, anchor="center")
-    
+        self.actualizar_lista_ganadores()
+
+        # 🎯 Restaurar automáticamente posiciones de sash
+        self.root.after(200, lambda: self.aplicar_posiciones_sashes(self.paned_sorteos, "sorteos_paned_sash_positions"))
+        self._sorteos_paned_sashes = []
+
+        def verificar_sorteos_paned_positions():
+            try:
+                self.root.update_idletasks()
+                total = self.paned_sorteos.winfo_width()
+                if total <= 1:
+                    self.root.after(1000, verificar_sorteos_paned_positions)
+                    return
+
+                panes = self.paned_sorteos.panes()
+                if len(panes) < 2:
+                    self.root.after(1000, verificar_sorteos_paned_positions)
+                    return
+
+                proporciones = [round(self.root.nametowidget(p).winfo_width() / total, 4) for p in panes]
+                posiciones = [round(sum(proporciones[:i+1]), 4) for i in range(len(proporciones) - 1)]
+
+                if posiciones != self._sorteos_paned_sashes:
+                    self._sorteos_paned_sashes = posiciones
+                    guardar_configuracion_ui_db("sorteos_paned_sash_positions", json.dumps(posiciones))
+                    print(f"💾 Posiciones actualizadas para PanedWindow Sorteos: {posiciones}")
+
+                self.root.after(1000, verificar_sorteos_paned_positions)
+            except Exception as e:
+                print(f"❌ Error monitoreando PanedWindow Sorteos: {e}")
+                self.root.after(1000, verificar_sorteos_paned_positions)
+
+        self.root.after(1000, verificar_sorteos_paned_positions)
+
     def crear_widgets_tab_reportes(self):
         self.report_type = tk.StringVar(value="diario")
         self.report_data_type_var = tk.StringVar(value="Ventas")
