@@ -1011,7 +1011,7 @@ class AppLoteria:
         self.apuesta_var = tk.StringVar()
         self.premio_calculado_var = tk.StringVar(value="C$0")
         self.sorteo_var = tk.StringVar()
-        self.periodo_resumen_var = tk.StringVar(value="Diario")
+        self.periodo_resumen_var = tk.StringVar(value="diario")
         meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         mes_actual_idx = datetime.now().month - 1
@@ -1020,13 +1020,18 @@ class AppLoteria:
         self.anio_resumen_var = tk.StringVar(value=str(datetime.now().year))
         self.fecha_ini_resumen_var = tk.StringVar(value=datetime.now().strftime('%Y-%m-%d'))
         self.fecha_fin_resumen_var = tk.StringVar(value=datetime.now().strftime('%Y-%m-%d'))
-        self.sorteo_resumen_var = tk.StringVar(value=obtener_sorteo_actual_automatico())
+        self.sorteo_resumen_var = tk.StringVar(value="Todos")
+        #self.sorteo_resumen_var = tk.StringVar(value=obtener_sorteo_actual_automatico())
+        
         self.apuesta_var.trace_add("write", self.actualizar_premio_calculado)
         self.sorteo_var.trace_add("write", self.update_top_info)
+
+        # 🔄 Actualización automática del resumen de ventas al cambiar cualquier filtro dinámico
         self.periodo_resumen_var.trace_add("write", self.mostrar_controles_dinamicos_resumen)
+        self.periodo_resumen_var.trace_add("write", lambda *args: self.actualizar_resumen_ventas_dia())
+        self.sorteo_resumen_var.trace_add("write", lambda *args: self.actualizar_resumen_ventas_dia())
         self.mes_resumen_var.trace_add("write", lambda *args: self.actualizar_resumen_ventas_dia())
         self.anio_resumen_var.trace_add("write", lambda *args: self.actualizar_resumen_ventas_dia())
-       
 
 
         # --- Parte Superior: Fecha y Sorteo Actual ---
@@ -1093,6 +1098,7 @@ class AppLoteria:
         """Actualiza el Treeview con el resumen de ventas agrupadas por número y sorteo, según filtros."""
         self.tree_historial_resumen.delete(*self.tree_historial_resumen.get_children())
         
+        
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         ahora = datetime.now()
@@ -1108,9 +1114,11 @@ class AppLoteria:
         fecha_ini = fecha_fin = ahora.strftime('%Y-%m-%d')
 
         if periodo == "diario":
-            fecha_ini = fecha_fin = ahora.strftime('%Y-%m-%d')
+            hoy_str = datetime.now().strftime('%Y-%m-%d')
             where.append("venta_fecha_solo_dia = ?")
-            params.append(fecha_ini)
+            params.append(hoy_str)
+
+
 
         elif periodo == "semanal":
             fecha_ini = (ahora - timedelta(days=ahora.weekday())).strftime('%Y-%m-%d')
@@ -1164,7 +1172,7 @@ class AppLoteria:
         conn.close()
 
         if not datos:
-            self.tree_historial_resumen.insert("", "end", values=("", "No hay ventas registradas", "", ""))
+            self.tree_historial_resumen.insert("", "end", values=("🕵️", "Sin datos en este período", "", ""))
             return
 
         for numero, total_apuesta, total_premio, sorteo_hora in datos:
@@ -1747,7 +1755,6 @@ class AppLoteria:
         ).grid(row=1, column=2, columnspan=2, padx=5, pady=10, sticky="ew")
 
 
-
         # --- Treeview al centro ---
         self.tree_ganadores_ventas = ttk.Treeview(frame_ganadores_ventas, columns=("Fecha", "Sorteo", "Número Ganador"), show="headings")
         self.tree_ganadores_ventas.pack(fill="both", expand=True, padx=5, pady=5)
@@ -1769,8 +1776,11 @@ class AppLoteria:
         self.frame_estado.grid(row=1, column=0, columnspan=3, padx=15, pady=5, sticky="ew") # row=1, debajo del PanedWindow
         self.lbl_estado = tk.Label(self.frame_estado, text="Listo para vender...", wraplength=400)
         self.lbl_estado.pack(padx=10, pady=5, fill="x")
-
+        
+        self.actualizar_resumen_ventas_dia()
         self.actualizar_ganadores_desde_ventas()
+        
+
 
         # --- Lógica de persistencia de posiciones de PanedWindow ---
         sash_positions_json = cargar_configuracion_ui_db('ventas_paned_sash_positions')
