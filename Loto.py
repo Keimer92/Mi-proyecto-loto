@@ -2189,39 +2189,22 @@ class AppLoteria:
         frame_derecho = ttk.LabelFrame(self.paned_configuracion, text="Distribución Visual")
         self.paned_configuracion.add(frame_derecho, weight=1)
 
-        ttk.Label(frame_derecho, text="⬇️ Distribuciones de Ventas:").pack(anchor="w", padx=10, pady=(10, 0))
-
-        # Ventas
-        ttk.Button(frame_derecho, text="📥 Guardar Distribución de Ventas", style="Accent.TButton",
-            command=lambda: self.guardar_distribucion_manual()).pack(padx=10, pady=5, fill="x")
-
-        ttk.Button(frame_derecho, text="♻️ Restaurar Distribución de Ventas", style="Accent.TButton",
-            command=lambda: self.restaurar_distribucion_predeterminada()).pack(padx=10, pady=5, fill="x")
-
-        # Reportes
+        # Guardar y Restaurar todas las posiciones de los panedwindows
         ttk.Separator(frame_derecho, orient="horizontal").pack(fill="x", padx=10, pady=(10, 5))
-        ttk.Label(frame_derecho, text="⬇️ Distribuciones de Reportes:").pack(anchor="w", padx=10, pady=(5, 0))
-
-        ttk.Button(frame_derecho, text="📥 Guardar Distribución de Reportes", style="Accent.TButton",
-            command=lambda: self.guardar_sashes_generico(self.paned_reportes, "reportes_paned_sash_positions", "Reportes")).pack(padx=10, pady=5, fill="x")
-
-        ttk.Button(frame_derecho, text="♻️ Restaurar Distribución de Reportes", style="Accent.TButton",
-            command=lambda: self.restaurar_sashes_generico(self.paned_reportes, "reportes_paned_sash_positions", [0.3, 0.7], "Reportes")).pack(padx=10, pady=5, fill="x")
-
-        # Sorteos
-        ttk.Separator(frame_derecho, orient="horizontal").pack(fill="x", padx=10, pady=(10, 5))
-        ttk.Label(frame_derecho, text="⬇️ Distribuciones de Sorteos:").pack(anchor="w", padx=10, pady=(5, 0))
-
-        ttk.Button(frame_derecho, text="📥 Guardar Distribución de Sorteos", style="Accent.TButton",
-            command=lambda: self.guardar_sashes_generico(self.paned_sorteos, "sorteos_paned_sash_positions", "Sorteos")).pack(padx=10, pady=5, fill="x")
-
-        ttk.Button(frame_derecho, text="♻️ Restaurar Distribución de Sorteos", style="Accent.TButton",
-            command=lambda: self.restaurar_sashes_generico(self.paned_sorteos, "sorteos_paned_sash_positions", [0.35, 0.7], "Sorteos")).pack(padx=10, pady=5, fill="x")
-
-        # Restaurar todo
-        ttk.Separator(frame_derecho, orient="horizontal").pack(fill="x", padx=10, pady=(10, 5))
+        ttk.Button(frame_derecho, text="📥 Guardar Todas las Distribuciones", style="Accent.TButton",
+            command=self.guardar_todas_las_distribuciones).pack(padx=10, pady=5, fill="x")
         ttk.Button(frame_derecho, text="🧹 Restaurar Todas las Distribuciones", style="Danger.TButton",
             command=self.restaurar_todas_las_distribuciones).pack(padx=10, pady=5, fill="x")
+
+        
+
+
+    def guardar_todas_las_distribuciones(self):
+        self.guardar_sashes_generico(self.paned_reportes, "reportes_paned_sash_positions", "Reportes")
+        self.guardar_sashes_generico(self.paned_sorteos, "sorteos_paned_sash_positions", "Sorteos")
+        self.guardar_sashes_generico(self.ventas_paned_window, "ventas_paned_sash_positions", "Ventas")
+        messagebox.showinfo("Distribuciones Guardadas", "📥 Todas las distribuciones fueron guardadas exitosamente.")
+
 
 
     def restaurar_todas_las_distribuciones(self):
@@ -2323,6 +2306,14 @@ class AppLoteria:
 
         self.tree_ganadores = ttk.Treeview(frame_historial, columns=("Fecha", "Sorteo", "Número Ganador"), show="headings")
         self.tree_ganadores.pack(fill="both", expand=True, padx=5, pady=5)
+
+        botonera_ganadores = ttk.Frame(frame_historial)
+        botonera_ganadores.pack(fill="x", padx=5, pady=(0, 10))
+
+        ttk.Button(botonera_ganadores, text="🖨 Imprimir Reporte", command=self.imprimir_ganadores_gui).pack(side="left", padx=5)
+        ttk.Button(botonera_ganadores, text="🧾 Exportar a PDF", command=self.exportar_ganadores_pdf, style="Accent.TButton").pack(side="left", padx=5)
+        ttk.Button(botonera_ganadores, text="📊 Exportar a Excel", command=self.exportar_ganadores_excel, style="Naranja.TButton").pack(side="left", padx=5)
+
 
         for col in ("Fecha", "Sorteo", "Número Ganador"):
             self.tree_ganadores.heading(col, text=col)
@@ -2439,6 +2430,15 @@ class AppLoteria:
         self.tree_reportes.column("Premio", width=120, anchor="center")
         self.tree_reportes.column("Ultima", width=150, anchor="center")
         self.tree_reportes.pack(fill="both", expand=True, padx=5, pady=5)
+
+        # 🧾 Botones de exportación y reporte debajo del Treeview
+        botonera_reportes = ttk.Frame(frame_resultado)
+        botonera_reportes.pack(fill="x", padx=5, pady=(0, 10))
+        ttk.Button(botonera_reportes, text="🖨 Imprimir Reporte", command=self.imprimir_reporte_gui).pack(side="left", padx=5)
+        ttk.Button(botonera_reportes, text="🧾 Exportar a PDF", command=self.exportar_reporte_a_pdf, style="Accent.TButton").pack(side="left", padx=5)
+        ttk.Button(botonera_reportes, text="📊 Exportar a Excel", command=self.exportar_reporte_excel, style="Naranja.TButton").pack(side="left", padx=5)
+
+
 
         # --- Persistencia visual ---
         self.persistir_anchos_treeview(
@@ -3586,6 +3586,88 @@ class AppLoteria:
 
         messagebox.showinfo("Importación exitosa", f"Se importaron {len(df)} ventas desde Excel.")
 
+    def exportar_ganadores_pdf(self):
+        datos = [self.tree_ganadores.item(i)["values"] for i in self.tree_ganadores.get_children()]
+        if not datos:
+            messagebox.showwarning("Exportar PDF", "No hay datos que exportar.")
+            return
+
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Helvetica", 'B', 14)
+            pdf.cell(0, 10, "Últimos Ganadores Registrados", ln=True, align="C")
+            pdf.ln(5)
+
+            pdf.set_font("Helvetica", 'B', 10)
+            headers = ["Fecha", "Sorteo", "Ganador"]
+            widths = [40, 40, 40]
+
+            for i, h in enumerate(headers):
+                pdf.cell(widths[i], 7, h, border=1, align='C')
+            pdf.ln()
+
+            pdf.set_font("Helvetica", size=10)
+            for fila in datos:
+                for i, valor in enumerate(fila):
+                    pdf.cell(widths[i], 7, str(valor), border=1, align='C')
+                pdf.ln()
+
+            pdf.cell(0, 10, f"Exportado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
+
+            os.makedirs("Reportes", exist_ok=True)
+            archivo = os.path.join("Reportes", f"Ganadores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+            pdf.output(archivo)
+            os.startfile(archivo) if sys.platform == "win32" else subprocess.Popen(["xdg-open", archivo])
+            messagebox.showinfo("Exportado", f"Reporte exportado a PDF:\n{archivo}")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo exportar:\n{e}")
+
+
+    def exportar_ganadores_excel(self):
+        try:
+            import openpyxl
+            from openpyxl.utils import get_column_letter
+            from openpyxl.styles import Font
+
+            datos = [self.tree_ganadores.item(i)["values"] for i in self.tree_ganadores.get_children()]
+            if not datos:
+                messagebox.showwarning("Exportar", "No hay datos que exportar.")
+                return
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Ganadores"
+
+            headers = ["Fecha", "Sorteo", "Ganador"]
+            ws.append(headers)
+
+            for col in range(1, 4):
+                ws.cell(row=1, column=col).font = Font(bold=True)
+
+            for fila in datos:
+                ws.append(fila)
+
+            for i in range(1, 4):
+                ws.column_dimensions[get_column_letter(i)].width = 18
+
+            os.makedirs("Reportes", exist_ok=True)
+            archivo = os.path.join("Reportes", f"Ganadores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
+            wb.save(archivo)
+            os.startfile(archivo) if sys.platform == "win32" else subprocess.Popen(["xdg-open", archivo])
+            messagebox.showinfo("Exportado", f"Reporte exportado a Excel:\n{archivo}")
+        except ImportError:
+            messagebox.showerror("Error", "Falta el módulo openpyxl.\nEjecutá: pip install openpyxl")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo exportar:\n{e}")
+
+    def imprimir_ganadores_gui(self):
+        self.exportar_ganadores_pdf()
+
+
+
+
+
 from collections import Counter
 def obtener_top_numeros_mas_vendidos_hoy(limit=5):
     """Devuelve los N números más vendidos hoy con el total de apuesta."""
@@ -3715,6 +3797,7 @@ def crear_respaldo_codigo_txt():
         print(f"✅ Respaldo creado: {ruta_txt}")
     except Exception as e:
         print(f"❌ Error al crear respaldo: {e}")
+
 
 # --- Punto de Entrada de la Aplicación ---
 if __name__ == "__main__":
