@@ -2592,7 +2592,7 @@ class AppLoteria:
         self.date_entry_registro = DateEntry(registrar, width=12, date_pattern='yyyy-mm-dd')
         self.date_entry_registro.grid(row=1, column=0, padx=5, pady=5, sticky="w")
 
-        self.sorteo_registro_var = tk.StringVar(value="11 AM")
+        self.sorteo_registro_var = tk.StringVar(value=obtener_sorteo_actual_automatico())
         self.sorteo_radio_frame_registro = ttk.Frame(registrar)
         self.sorteo_radio_frame_registro.grid(row=1, column=1, padx=5, pady=5, sticky="w")
         for i, s in enumerate(self.sorteo_options_all):
@@ -2616,7 +2616,7 @@ class AppLoteria:
         self.date_entry_consulta = DateEntry(consultar, width=12, date_pattern='yyyy-mm-dd')
         self.date_entry_consulta.grid(row=1, column=0, padx=5, pady=5, sticky="w")
 
-        self.sorteo_consulta_var = tk.StringVar(value="11 AM")
+        self.sorteo_consulta_var = tk.StringVar(value=obtener_sorteo_actual_automatico())
         self.sorteo_radio_frame_consulta = ttk.Frame(consultar)
         self.sorteo_radio_frame_consulta.grid(row=1, column=1, padx=5, pady=5, sticky="w")
         for i, s in enumerate(self.sorteo_options_all):
