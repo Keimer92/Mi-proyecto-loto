@@ -12,6 +12,7 @@ import re # Necesario para el procesamiento del reporte en PDF
 import json 
 import pandas as pd
 from tkinter import filedialog, messagebox
+from collections import Counter
 
 
 from tkcalendar import DateEntry
@@ -397,6 +398,139 @@ def registrar_venta_db(numero, apuesta, premio, sorteo_hora):
         return False, f"❌ Error al registrar/actualizar la venta: {e}"
     finally:
         conn.close()
+
+from collections import Counter
+def obtener_top_numeros_mas_vendidos_hoy(limit=5):
+    """Devuelve los N números más vendidos hoy con el total de apuesta."""
+    fecha_actual = datetime.now().strftime('%Y-%m-%d')
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+    SELECT numero_loteria, SUM(apuesta) as total
+    FROM ventas
+    WHERE venta_fecha_solo_dia = ?
+    GROUP BY numero_loteria
+    ORDER BY total DESC
+    LIMIT ?
+    ''', (fecha_actual, limit))
+
+    resultados = cursor.fetchall()
+    conn.close()
+    return resultados  # Lista de tuplas (numero, total_apuesta)
+
+def obtener_total_apostado_por_sorteo_semana():
+    """Devuelve una lista con el total apostado en la semana por sorteo."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    hoy = datetime.now()
+    lunes = hoy - timedelta(days=hoy.weekday())  # lunes de esta semana
+    fecha_inicio = lunes.strftime('%Y-%m-%d')
+
+    cursor.execute('''
+        SELECT sorteo_hora, SUM(apuesta) as total_apuesta
+        FROM ventas
+        WHERE venta_fecha_solo_dia >= ?
+        GROUP BY sorteo_hora
+        ORDER BY sorteo_hora
+    ''', (fecha_inicio,))
+    
+    resultados = cursor.fetchall()
+    conn.close()
+    return resultados  # Ejemplo: [('03 PM', 450), ('06 PM', 620), ...]
+
+def obtener_apuestas_vs_premios_semana():
+    """
+    Devuelve una lista con cada sorteo y su total apostado vs total pagado en premios,
+    desde el lunes hasta hoy.
+    """
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    hoy = datetime.now()
+    lunes = hoy - timedelta(days=hoy.weekday())
+    fecha_inicio = lunes.strftime('%Y-%m-%d')
+
+    # Total apostado por sorteo
+    cursor.execute('''
+        SELECT sorteo_hora, SUM(apuesta) FROM ventas
+        WHERE venta_fecha_solo_dia >= ?
+        GROUP BY sorteo_hora
+    ''', (fecha_inicio,))
+    apuestas = dict(cursor.fetchall())
+
+    # Total premios entregados por sorteo (si hubo coincidencia con número ganador)
+    cursor.execute('''
+        SELECT v.sorteo_hora, SUM(v.premio_potencial)
+        FROM ventas v
+        JOIN resultados_sorteo r
+            ON v.venta_fecha_solo_dia = r.fecha_sorteo
+            AND v.sorteo_hora = r.hora_sorteo
+            AND v.numero_loteria = r.numero_ganador
+        WHERE v.venta_fecha_solo_dia >= ?
+        GROUP BY v.sorteo_hora
+    ''', (fecha_inicio,))
+    premios = dict(cursor.fetchall())
+
+    conn.close()
+
+    sorteos = ['11 AM', '03 PM', '06 PM', '09 PM']
+    resultado = []
+    for sorteo in sorteos:
+        total_ap = apuestas.get(sorteo, 0)
+        total_pr = premios.get(sorteo, 0)
+        resultado.append((sorteo, total_ap, total_pr))
+
+    return resultado
+
+
+def eliminar_ultima_venta_valida_db():
+    """Elimina el último registro real de venta basado en la fecha y hora más reciente."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            SELECT id FROM ventas
+            ORDER BY fecha_hora DESC
+            LIMIT 1
+        ''')
+        ultima = cursor.fetchone()
+        if ultima:
+            cursor.execute('DELETE FROM ventas WHERE id = ?', (ultima[0],))
+            conn.commit()
+            return True, "✅ Última venta eliminada correctamente."
+        else:
+            return False, "❌ No hay ventas para eliminar."
+    except sqlite3.Error as e:
+        return False, f"❌ Error al eliminar la última venta: {e}"
+    finally:
+        conn.close()
+
+def crear_respaldo_codigo_txt():
+    import os
+    import sys
+
+    try:
+        # Detecta la ruta del archivo fuente principal
+        if hasattr(sys, 'argv') and sys.argv[0]:
+            ruta_py = os.path.abspath(sys.argv[0])
+        else:
+            print("❌ No se pudo determinar la ruta del archivo ejecutado.")
+            return
+
+        nombre_sin_ext = os.path.splitext(os.path.basename(ruta_py))[0]
+        ruta_txt = os.path.join(os.path.dirname(ruta_py), f"{nombre_sin_ext}_respaldo.txt")
+
+        with open(ruta_py, 'r', encoding='utf-8') as f_origen, open(ruta_txt, 'w', encoding='utf-8') as f_destino:
+            f_destino.write(f_origen.read())
+
+        print(f"✅ Respaldo creado: {ruta_txt}")
+    except Exception as e:
+        print(f"❌ Error al crear respaldo: {e}")
+
+
+
 
 def obtener_todas_las_ventas_db():
     """Obtiene todos los registros de ventas de la base de datos (individuales, sin agrupar)."""
@@ -3668,135 +3802,6 @@ class AppLoteria:
 
 
 
-from collections import Counter
-def obtener_top_numeros_mas_vendidos_hoy(limit=5):
-    """Devuelve los N números más vendidos hoy con el total de apuesta."""
-    fecha_actual = datetime.now().strftime('%Y-%m-%d')
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
-    cursor.execute('''
-    SELECT numero_loteria, SUM(apuesta) as total
-    FROM ventas
-    WHERE venta_fecha_solo_dia = ?
-    GROUP BY numero_loteria
-    ORDER BY total DESC
-    LIMIT ?
-    ''', (fecha_actual, limit))
-
-    resultados = cursor.fetchall()
-    conn.close()
-    return resultados  # Lista de tuplas (numero, total_apuesta)
-
-def obtener_total_apostado_por_sorteo_semana():
-    """Devuelve una lista con el total apostado en la semana por sorteo."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
-    hoy = datetime.now()
-    lunes = hoy - timedelta(days=hoy.weekday())  # lunes de esta semana
-    fecha_inicio = lunes.strftime('%Y-%m-%d')
-
-    cursor.execute('''
-        SELECT sorteo_hora, SUM(apuesta) as total_apuesta
-        FROM ventas
-        WHERE venta_fecha_solo_dia >= ?
-        GROUP BY sorteo_hora
-        ORDER BY sorteo_hora
-    ''', (fecha_inicio,))
-    
-    resultados = cursor.fetchall()
-    conn.close()
-    return resultados  # Ejemplo: [('03 PM', 450), ('06 PM', 620), ...]
-
-def obtener_apuestas_vs_premios_semana():
-    """
-    Devuelve una lista con cada sorteo y su total apostado vs total pagado en premios,
-    desde el lunes hasta hoy.
-    """
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
-    hoy = datetime.now()
-    lunes = hoy - timedelta(days=hoy.weekday())
-    fecha_inicio = lunes.strftime('%Y-%m-%d')
-
-    # Total apostado por sorteo
-    cursor.execute('''
-        SELECT sorteo_hora, SUM(apuesta) FROM ventas
-        WHERE venta_fecha_solo_dia >= ?
-        GROUP BY sorteo_hora
-    ''', (fecha_inicio,))
-    apuestas = dict(cursor.fetchall())
-
-    # Total premios entregados por sorteo (si hubo coincidencia con número ganador)
-    cursor.execute('''
-        SELECT v.sorteo_hora, SUM(v.premio_potencial)
-        FROM ventas v
-        JOIN resultados_sorteo r
-            ON v.venta_fecha_solo_dia = r.fecha_sorteo
-            AND v.sorteo_hora = r.hora_sorteo
-            AND v.numero_loteria = r.numero_ganador
-        WHERE v.venta_fecha_solo_dia >= ?
-        GROUP BY v.sorteo_hora
-    ''', (fecha_inicio,))
-    premios = dict(cursor.fetchall())
-
-    conn.close()
-
-    sorteos = ['11 AM', '03 PM', '06 PM', '09 PM']
-    resultado = []
-    for sorteo in sorteos:
-        total_ap = apuestas.get(sorteo, 0)
-        total_pr = premios.get(sorteo, 0)
-        resultado.append((sorteo, total_ap, total_pr))
-
-    return resultado
-
-
-def eliminar_ultima_venta_valida_db():
-    """Elimina el último registro real de venta basado en la fecha y hora más reciente."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    try:
-        cursor.execute('''
-            SELECT id FROM ventas
-            ORDER BY fecha_hora DESC
-            LIMIT 1
-        ''')
-        ultima = cursor.fetchone()
-        if ultima:
-            cursor.execute('DELETE FROM ventas WHERE id = ?', (ultima[0],))
-            conn.commit()
-            return True, "✅ Última venta eliminada correctamente."
-        else:
-            return False, "❌ No hay ventas para eliminar."
-    except sqlite3.Error as e:
-        return False, f"❌ Error al eliminar la última venta: {e}"
-    finally:
-        conn.close()
-
-def crear_respaldo_codigo_txt():
-    import os
-    import sys
-
-    try:
-        # Detecta la ruta del archivo fuente principal
-        if hasattr(sys, 'argv') and sys.argv[0]:
-            ruta_py = os.path.abspath(sys.argv[0])
-        else:
-            print("❌ No se pudo determinar la ruta del archivo ejecutado.")
-            return
-
-        nombre_sin_ext = os.path.splitext(os.path.basename(ruta_py))[0]
-        ruta_txt = os.path.join(os.path.dirname(ruta_py), f"{nombre_sin_ext}_respaldo.txt")
-
-        with open(ruta_py, 'r', encoding='utf-8') as f_origen, open(ruta_txt, 'w', encoding='utf-8') as f_destino:
-            f_destino.write(f_origen.read())
-
-        print(f"✅ Respaldo creado: {ruta_txt}")
-    except Exception as e:
-        print(f"❌ Error al crear respaldo: {e}")
 
 
 # --- Punto de Entrada de la Aplicación ---
