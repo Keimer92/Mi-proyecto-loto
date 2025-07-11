@@ -2535,9 +2535,12 @@ class AppLoteria:
         self.date_entry_reporte_fin = DateEntry(self.filtros_fechas, textvariable=self.report_end_date_var, date_pattern='yyyy-mm-dd', width=12)
 
         self.lbl_mes_reporte = ttk.Label(self.filtros_fechas, text="Mes:")
-        self.report_month_var = tk.StringVar(value="Enero")
+        mes_actual_idx = datetime.now().month - 1  # Python usa 0-index
+        meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        mes_actual_nombre = meses[mes_actual_idx]
+        self.report_month_var = tk.StringVar(value=mes_actual_nombre)
         self.combo_mes_reporte = ttk.Combobox(self.filtros_fechas, textvariable=self.report_month_var, values=list(self.meses_map.values()), state="readonly", width=10)
-
         self.lbl_year_reporte = ttk.Label(self.filtros_fechas, text="Año:")
         self.combo_year_reporte = ttk.Combobox(self.filtros_fechas, textvariable=self.report_year_var, values=[str(y) for y in range(datetime.now().year - 5, datetime.now().year + 2)], state="readonly", width=8)
 
@@ -3155,9 +3158,12 @@ class AppLoteria:
                 self.report_data = []
                 self.report_type_data = None
                 return
+
+
         # <<< CAMBIO FINALIZADO
         elif tipo_periodo == "mensual":
             mes_nombre_seleccionado = self.report_month_var.get()
+            mes_numero_seleccionado = self.meses_map_reverse.get(mes_nombre_seleccionado)
             self.meses_map = {
                 "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
                 "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
@@ -3165,11 +3171,11 @@ class AppLoteria:
             }
             self.meses_map_reverse = {v: k for k, v in self.meses_map.items()}
             anio_seleccionado = self.report_year_var.get()
-            if not mes_numero_seleccionado or not anio_seleccionado:
-                messagebox.showwarning("Advertencia", "Por favor, seleccione el mes y el año para el reporte mensual.")
-                self.tree_reportes.delete(*self.tree_reportes.get_children())
-                self.report_type_data = None
-                return
+            #if not mes_numero_seleccionado or not anio_seleccionado:
+            #    messagebox.showwarning("Advertencia", "Por favor, seleccione el mes y el año para el reporte mensual.")
+            #    self.tree_reportes.delete(*self.tree_reportes.get_children())
+            #    self.report_type_data = None
+            #    return
 
 
         # Fetch data based on selected data type
@@ -3199,6 +3205,11 @@ class AppLoteria:
             self.report_type_data = "Ganadores"
 
         self.tree_reportes.delete(*self.tree_reportes.get_children())
+        
+        if not self.report_data:
+            self.tree_reportes.insert("", "end", values=("", "No se encontraron datos", "", "", ""))
+            return
+
         for fila in self.report_data:
             numero, apuesta_total, premio_total, _, sorteo_hora, ultima_mod = fila
             self.tree_reportes.insert("", "end", values=(
