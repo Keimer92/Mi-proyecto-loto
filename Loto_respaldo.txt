@@ -3394,18 +3394,30 @@ class AppLoteria:
             self.tree_reportes.insert("", "end", values=("", "No se encontraron datos", "", "", ""))
             return
 
-        for fila in self.report_data:
-            numero, apuesta_total, premio_total, _, sorteo_hora, ultima_mod = fila
-            self.tree_reportes.insert("", "end", values=(
-                numero,
-                sorteo_hora,
-                f"C${apuesta_total:,.0f}",
-                f"C${premio_total:,.0f}",
-                ultima_mod
-            ))
+        self.tree_reportes.delete(*self.tree_reportes.get_children())
 
+        if self.report_type_data == "Ventas":
+            for fila in self.report_data:
+                numero, apuesta_total, premio_total, _, sorteo_hora, ultima_mod = fila
+                self.tree_reportes.insert("", "end", values=(numero, sorteo_hora, f"C${apuesta_total:,.0f}", f"C${premio_total:,.0f}", ultima_mod))
+        elif self.report_type_data == "Ganadores":
+                # Actualizar encabezados para Ganadores
+                self.tree_reportes.heading("Numero", text="Ganador")
+                self.tree_reportes.heading("Sorteo", text="Sorteo")
+                self.tree_reportes.heading("Apuesta", text="Apuesta Total (C$)")
+                self.tree_reportes.heading("Premio", text="Premio Pagado (C$)")
+                self.tree_reportes.heading("Ultima", text="Fecha del Sorteo")
 
+                for fila in self.report_data:
+                    fecha, sorteo, numero, total_apostado, premio_pagado = fila
+                    total_apostado = total_apostado or 0
+                    premio_pagado = premio_pagado or 0
+                    self.tree_reportes.insert(
+                        "", "end",
+                        values=(numero, sorteo, f"C${total_apostado:,.0f}", f"C${premio_pagado:,.0f}", fecha)
+                    )
 
+          
         # <<< CAMBIO INICIADO: Actualizar el mapa de títulos para el rango de fechas.
         titulo_map = {
             "diario": "Diario",
