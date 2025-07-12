@@ -1075,7 +1075,6 @@ class AppLoteria:
        
         # Inicializar widgets para cada pestaña
         self.crear_widgets_tab_ventas()
-        self.actualizar_estado_ganadores_ventas()
         self.crear_widgets_tab_sorteos()
         self.crear_widgets_tab_reportes()
         self.crear_widgets_tab_configuracion() # Llamar a la nueva función
@@ -1242,9 +1241,18 @@ class AppLoteria:
 
         for s in self.sorteo_options_all:
             numero = consultar_numero_ganador_db(fecha, s)
-            texto = numero if numero else "🚫 PENDIENTE"
-            tag = ("pendiente",) if texto == "🚫 PENDIENTE" else ()
-            self.tree_ganadores_ventas.insert("", "end", values=(fecha, s, texto), tags=tag)
+            if numero:
+                tag = ("confirmado",)
+                texto = numero
+            else:
+                tag = ("pendiente",)
+                texto = "🚫 PENDIENTE"
+
+            self.tree_ganadores_ventas.insert(
+                "", "end",
+                values=(fecha, s, texto),
+                tags=tag
+            )
 
 
 
@@ -1657,7 +1665,6 @@ class AppLoteria:
         filtros_frame_ganadores.pack(fill="x", padx=5, pady=(10, 5))
         
         
-
         #--- Frame para registrar/actualizar ganador
         frame_registrar_ganador_ventas = ttk.LabelFrame(frame_ganadores_ventas, text="Registrar o Actualizar Ganador")
         frame_registrar_ganador_ventas.pack(fill="x", padx=5, pady=(10, 5))
@@ -1711,17 +1718,18 @@ class AppLoteria:
         # --- Treeview al centro ---
         self.tree_ganadores_ventas = ttk.Treeview(frame_ganadores_ventas, columns=("Fecha", "Sorteo", "Número Ganador"), show="headings")
         self.tree_ganadores_ventas.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Estilo para resaltar filas pendientes
+        self.tree_ganadores_ventas.tag_configure("pendiente", background="#ffcccc", foreground="black")
+        self.tree_ganadores_ventas.tag_configure("confirmado", background="#ccffcc", foreground="black")
+
 
         for col in ("Fecha", "Sorteo", "Número Ganador"):
             self.tree_ganadores_ventas.heading(col, text=col)
             self.tree_ganadores_ventas.column(col, width=100, anchor="center")
 
 
-        # Estilo para resaltar filas pendientes
-        self.tree_ganadores_ventas.tag_configure("pendiente", background="#ffcccc", foreground="black")
-
-
-
+        
         # --- Estado de la venta --- (Lo movemos al final para que no interrumpa el PanedWindow)
         self.frame_estado = tk.LabelFrame(self.tab_ventas, text="Estado de Venta", font=("Arial", 10, "bold"))
         self.frame_estado.grid(row=1, column=0, columnspan=3, padx=15, pady=5, sticky="ew") # row=1, debajo del PanedWindow
@@ -1729,8 +1737,13 @@ class AppLoteria:
         self.lbl_estado.pack(padx=10, pady=5, fill="x")
         
         self.actualizar_resumen_ventas_dia()
-        self.actualizar_ganadores_desde_ventas()
         
+        # Asegura que el DateEntry tenga la fecha de hoy
+        self.fecha_registro_ganador_ventas.set_date(datetime.now().date())
+
+        # Refrescar colores desde el arranque
+        self.actualizar_ganadores_desde_ventas()
+
 
 
         # --- Lógica de persistencia de posiciones de PanedWindow ---
@@ -2836,6 +2849,7 @@ class AppLoteria:
         pestaña_actual = self.notebook.tab(self.notebook.select(), "text")
         if pestaña_actual == "Ventas":
             self.actualizar_resumen_ventas_dia()
+            self.actualizar_ganadores_desde_ventas()
         elif pestaña_actual == "Reportes":
             self.generar_reporte_gui()
         elif pestaña_actual == "Gráficos":
