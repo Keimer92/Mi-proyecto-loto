@@ -1666,6 +1666,20 @@ class AppLoteria:
         self.fecha_registro_ganador_ventas = DateEntry(frame_registrar_ganador_ventas, width=12, date_pattern='yyyy-mm-dd')
         self.fecha_registro_ganador_ventas.grid(row=0, column=1, padx=5, pady=5)
 
+        self.fecha_registro_ganador_ventas = DateEntry(
+            frame_registrar_ganador_ventas,
+            width=12,
+            date_pattern='yyyy-mm-dd'
+        )
+        self.fecha_registro_ganador_ventas.grid(row=0, column=1, padx=5, pady=5)
+
+        # Aquí enlazamos el evento de cambio de fecha a la actualización del Treeview
+        self.fecha_registro_ganador_ventas.bind(
+            "<<DateEntrySelected>>",
+            lambda e: self.actualizar_ganadores_desde_ventas()
+)
+
+
         ttk.Label(frame_registrar_ganador_ventas, text="Sorteo:").grid(row=0, column=2, padx=5, pady=5)
         self.sorteo_registro_actual_ventas = tk.StringVar(value=obtener_sorteo_actual_automatico())
 
