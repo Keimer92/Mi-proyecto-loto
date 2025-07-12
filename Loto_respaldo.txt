@@ -1237,56 +1237,17 @@ class AppLoteria:
             messagebox.showerror("Error", f"No se pudo exportar:\n{e}")
 
     def actualizar_ganadores_desde_ventas(self):
-        fecha = self.fecha_ganadores_ventas.get_date().strftime('%Y-%m-%d')
-        sorteo_consultado = self.sorteo_ganadores_ventas.get()
-
+        fecha = self.fecha_registro_ganador_ventas.get_date().strftime('%Y-%m-%d')
         self.tree_ganadores_ventas.delete(*self.tree_ganadores_ventas.get_children())
-
-        ahora = datetime.now().time()
-        horarios_sorteo = {
-            "11 AM": datetime.strptime("11:00", "%H:%M").time(),
-            "03 PM": datetime.strptime("15:00", "%H:%M").time(),
-            "06 PM": datetime.strptime("18:00", "%H:%M").time(),
-            "09 PM": datetime.strptime("21:00", "%H:%M").time()
-        }
-
-        filas_ids = {}
 
         for s in self.sorteo_options_all:
             numero = consultar_numero_ganador_db(fecha, s)
             texto = numero if numero else "🚫 PENDIENTE"
-            tag = ("🚫 PENDIENTE",) if texto == "🚫 PENDIENTE" else ()
-            filas_ids[s] = self.tree_ganadores_ventas.insert("", "end", values=(fecha, s, texto), tags=tag)
+            tag = ("pendiente",) if texto == "🚫 PENDIENTE" else ()
+            self.tree_ganadores_ventas.insert("", "end", values=(fecha, s, texto), tags=tag)
 
 
-        # Lógica de consulta directa sin modificar el Treeview
-        if sorteo_consultado != "Todos":
-            hora_sorteo = horarios_sorteo.get(sorteo_consultado)
-            if ahora < hora_sorteo:
-                self.lbl_resultado_consulta_ganador_ventas.config(
-                    text=f"⏳ El sorteo de {sorteo_consultado} aún no ha ocurrido.",
-                    foreground="orange"
-                )
-            else:
-                numero = consultar_numero_ganador_db(fecha, sorteo_consultado)
-                if numero:
-                    self.lbl_resultado_consulta_ganador_ventas.config(
-                        text=f"✅ Consulta directa: El número ganador para {sorteo_consultado} es {numero}.",
-                        foreground="green"
-                    )
-                    # Resaltar la fila correspondiente
-                    self.tree_ganadores_ventas.item(filas_ids[sorteo_consultado], tags=("seleccionado",))
-                    self.tree_ganadores_ventas.tag_configure("seleccionado", background="#c8e6c9")
-                else:
-                    self.lbl_resultado_consulta_ganador_ventas.config(
-                        text=f"⚠ No registrado aún para {sorteo_consultado}.",
-                        foreground="red"
-                    )
-        else:
-            self.lbl_resultado_consulta_ganador_ventas.config(
-                text="Consulta directa: Mostrando todos los sorteos del día.",
-                foreground="blue"
-            )
+
 
     def registrar_ganador_desde_ventas(self):
         fecha = self.fecha_registro_ganador_ventas.get_date().strftime('%Y-%m-%d')
@@ -1309,10 +1270,10 @@ class AppLoteria:
             self.entry_ganador_registro_ventas.delete(0, tk.END)
             
             # 🌟 Actualizar la etiqueta de consulta directa con el nuevo número ingresado
-            self.lbl_resultado_consulta_ganador_ventas.config(
-                text=f"✅ Consulta directa: El número ganador para {sorteo} es {numero}.",
-                foreground="green"
-            )
+            #self.lbl_resultado_consulta_ganador_ventas.config(
+            #    text=f"✅ Consulta directa: El número ganador para {sorteo} es {numero}.",
+            #    foreground="green"
+            #)
         else:
             messagebox.showerror("Error", mensaje)
 
@@ -1695,36 +1656,7 @@ class AppLoteria:
         filtros_frame_ganadores = ttk.Frame(frame_ganadores_ventas)
         filtros_frame_ganadores.pack(fill="x", padx=5, pady=(10, 5))
         
-        ttk.Label(filtros_frame_ganadores, text="Fecha:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.fecha_ganadores_ventas = DateEntry(filtros_frame_ganadores, width=12, date_pattern='yyyy-mm-dd')
-        self.fecha_ganadores_ventas.grid(row=0, column=1, padx=5, pady=5, sticky="w")
-        self.fecha_ganadores_ventas.bind("<<DateEntrySelected>>", lambda e: self.actualizar_ganadores_desde_ventas())
-
-        ttk.Label(filtros_frame_ganadores, text="Sorteo:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        self.sorteo_ganadores_ventas = tk.StringVar(value=obtener_sorteo_actual_automatico())
-        self.sorteo_ganadores_ventas.trace_add("write", lambda *args: self.actualizar_ganadores_desde_ventas())
-        self.sorteo_ganadores_ventas = tk.StringVar(value="Todos")
-
-        ttk.Label(filtros_frame_ganadores, text="Sorteo:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        self.combo_sorteo_ganadores_ventas = ttk.Combobox(
-            filtros_frame_ganadores,
-            textvariable=self.sorteo_ganadores_ventas,
-            values=["Todos"] + list(self.sorteo_options_all),
-            state="readonly",
-            width=12
-        )
-        self.combo_sorteo_ganadores_ventas.grid(row=0, column=3, padx=5, pady=5, sticky="w")
-        self.combo_sorteo_ganadores_ventas.bind("<<ComboboxSelected>>", lambda e: self.actualizar_ganadores_desde_ventas())
-
-        self.lbl_resultado_consulta_ganador_ventas = ttk.Label(
-            frame_ganadores_ventas,
-            text="Consulta directa: Aquí aparece el número ganador del sorteo seleccionado",
-            font=("Arial", 10, "bold"),
-            foreground="blue"
-        )
-        self.lbl_resultado_consulta_ganador_ventas.pack(padx=5, pady=(0, 5))
-
-
+        
 
         #--- Frame para registrar/actualizar ganador
         frame_registrar_ganador_ventas = ttk.LabelFrame(frame_ganadores_ventas, text="Registrar o Actualizar Ganador")
