@@ -1773,13 +1773,7 @@ class AppLoteria:
         # Estilo para resaltar filas pendientes
         self.tree_ganadores_ventas.tag_configure("pendiente", background="#ffcccc", foreground="black")
 
-        # --- Botonera abajo ---
-        #botonera_exportacion = ttk.Frame(frame_ganadores_ventas)
-        #botonera_exportacion.pack(fill="x", padx=5, pady=(0, 10))
 
-        #ttk.Button(botonera_exportacion, text="🖨 Imprimir", command=self.imprimir_ganadores_gui).pack(side="left", padx=5)
-        #ttk.Button(botonera_exportacion, text="🧾 Exportar PDF", command=self.exportar_ganadores_pdf, style="Accent.TButton").pack(side="left", padx=5)
-        #ttk.Button(botonera_exportacion, text="📊 Exportar Excel", command=self.exportar_ganadores_excel, style="Naranja.TButton").pack(side="left", padx=5)
 
         # --- Estado de la venta --- (Lo movemos al final para que no interrumpa el PanedWindow)
         self.frame_estado = tk.LabelFrame(self.tab_ventas, text="Estado de Venta", font=("Arial", 10, "bold"))
