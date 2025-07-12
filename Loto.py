@@ -1305,8 +1305,9 @@ class AppLoteria:
         if exito:
             messagebox.showinfo("Registro exitoso", mensaje)
             self.actualizar_ganadores_desde_ventas()
+            self.actualizar_lista_ganadores()
             self.entry_ganador_registro_ventas.delete(0, tk.END)
-
+            
             # 🌟 Actualizar la etiqueta de consulta directa con el nuevo número ingresado
             self.lbl_resultado_consulta_ganador_ventas.config(
                 text=f"✅ Consulta directa: El número ganador para {sorteo} es {numero}.",
