@@ -1052,6 +1052,8 @@ class AppLoteria:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(padx=10, pady=(5, 10), fill="both", expand=True)
 
+        
+
         # Crear frames para cada pestaña
         self.tab_ventas = ttk.Frame(self.notebook)
         self.tab_sorteos = ttk.Frame(self.notebook)
@@ -1070,7 +1072,7 @@ class AppLoteria:
         self.tab_configuracion = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_configuracion, text="Configuración")
        
-        
+       
         # Inicializar widgets para cada pestaña
         self.crear_widgets_tab_ventas()
         self.actualizar_estado_ganadores_ventas()
@@ -1252,8 +1254,10 @@ class AppLoteria:
 
         for s in self.sorteo_options_all:
             numero = consultar_numero_ganador_db(fecha, s)
-            texto = numero if numero else "No registrado"
-            filas_ids[s] = self.tree_ganadores_ventas.insert("", "end", values=(fecha, s, texto))
+            texto = numero if numero else "🚫 PENDIENTE"
+            tag = ("🚫 PENDIENTE",) if texto == "🚫 PENDIENTE" else ()
+            filas_ids[s] = self.tree_ganadores_ventas.insert("", "end", values=(fecha, s, texto), tags=tag)
+
 
         # Lógica de consulta directa sin modificar el Treeview
         if sorteo_consultado != "Todos":
@@ -1755,6 +1759,8 @@ class AppLoteria:
         ).grid(row=1, column=2, columnspan=2, padx=5, pady=10, sticky="ew")
 
 
+        
+
         # --- Treeview al centro ---
         self.tree_ganadores_ventas = ttk.Treeview(frame_ganadores_ventas, columns=("Fecha", "Sorteo", "Número Ganador"), show="headings")
         self.tree_ganadores_ventas.pack(fill="both", expand=True, padx=5, pady=5)
@@ -1763,13 +1769,17 @@ class AppLoteria:
             self.tree_ganadores_ventas.heading(col, text=col)
             self.tree_ganadores_ventas.column(col, width=100, anchor="center")
 
-        # --- Botonera abajo ---
-        botonera_exportacion = ttk.Frame(frame_ganadores_ventas)
-        botonera_exportacion.pack(fill="x", padx=5, pady=(0, 10))
 
-        ttk.Button(botonera_exportacion, text="🖨 Imprimir", command=self.imprimir_ganadores_gui).pack(side="left", padx=5)
-        ttk.Button(botonera_exportacion, text="🧾 Exportar PDF", command=self.exportar_ganadores_pdf, style="Accent.TButton").pack(side="left", padx=5)
-        ttk.Button(botonera_exportacion, text="📊 Exportar Excel", command=self.exportar_ganadores_excel, style="Naranja.TButton").pack(side="left", padx=5)
+        # Estilo para resaltar filas pendientes
+        self.tree_ganadores_ventas.tag_configure("🚫 PENDIENTE", background="#ffcccc", foreground="black")
+
+        # --- Botonera abajo ---
+        #botonera_exportacion = ttk.Frame(frame_ganadores_ventas)
+        #botonera_exportacion.pack(fill="x", padx=5, pady=(0, 10))
+
+        #ttk.Button(botonera_exportacion, text="🖨 Imprimir", command=self.imprimir_ganadores_gui).pack(side="left", padx=5)
+        #ttk.Button(botonera_exportacion, text="🧾 Exportar PDF", command=self.exportar_ganadores_pdf, style="Accent.TButton").pack(side="left", padx=5)
+        #ttk.Button(botonera_exportacion, text="📊 Exportar Excel", command=self.exportar_ganadores_excel, style="Naranja.TButton").pack(side="left", padx=5)
 
         # --- Estado de la venta --- (Lo movemos al final para que no interrumpa el PanedWindow)
         self.frame_estado = tk.LabelFrame(self.tab_ventas, text="Estado de Venta", font=("Arial", 10, "bold"))
@@ -3163,10 +3173,9 @@ class AppLoteria:
 
         for sorteo in self.sorteo_options_all:
             numero_ganador = consultar_numero_ganador_db(fecha_actual, sorteo)
-            if numero_ganador:
-                self.tree_ganadores_ventas.insert("", "end", values=(fecha_actual, sorteo, numero_ganador))
-            else:
-                self.tree_ganadores_ventas.insert("", "end", values=(fecha_actual, sorteo, "PENDIENTE"))
+            valor = numero_ganador if numero_ganador else "🚫 PENDIENTE"
+            tag = ("pendiente",) if valor == "PENDIENTE" else ()
+            self.tree_ganadores_ventas.insert("", "end", values=(fecha_actual, sorteo, valor), tags=tag)
 
 
 
