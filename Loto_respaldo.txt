@@ -1771,7 +1771,7 @@ class AppLoteria:
 
 
         # Estilo para resaltar filas pendientes
-        self.tree_ganadores_ventas.tag_configure("🚫 PENDIENTE", background="#ffcccc", foreground="black")
+        self.tree_ganadores_ventas.tag_configure("pendiente", background="#ffcccc", foreground="black")
 
         # --- Botonera abajo ---
         #botonera_exportacion = ttk.Frame(frame_ganadores_ventas)
@@ -3174,7 +3174,7 @@ class AppLoteria:
         for sorteo in self.sorteo_options_all:
             numero_ganador = consultar_numero_ganador_db(fecha_actual, sorteo)
             valor = numero_ganador if numero_ganador else "🚫 PENDIENTE"
-            tag = ("pendiente",) if valor == "PENDIENTE" else ()
+            tag = ("pendiente",) if not numero_ganador else ()
             self.tree_ganadores_ventas.insert("", "end", values=(fecha_actual, sorteo, valor), tags=tag)
 
 
