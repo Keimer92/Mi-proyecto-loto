@@ -1677,7 +1677,7 @@ class AppLoteria:
         self.fecha_registro_ganador_ventas.bind(
             "<<DateEntrySelected>>",
             lambda e: self.actualizar_ganadores_desde_ventas()
-)
+        )
 
 
         ttk.Label(frame_registrar_ganador_ventas, text="Sorteo:").grid(row=0, column=2, padx=5, pady=5)
@@ -2553,7 +2553,13 @@ class AppLoteria:
         self.date_entry_registro = DateEntry(registrar, width=12, date_pattern='yyyy-mm-dd')
         self.date_entry_registro.grid(row=1, column=0, padx=5, pady=5, sticky="w")
 
+        # 🔄 Actualizar Treeview al cambiar la fecha
+        self.date_entry_registro.bind("<<DateEntrySelected>>", lambda e: self._actualizar_ganadores_gestion())
+
         self.sorteo_registro_var = tk.StringVar(value=obtener_sorteo_actual_automatico())
+        # 🔄 Actualizar Treeview al cambiar el sorteo
+        self.sorteo_registro_var.trace_add("write", lambda *args: self._actualizar_ganadores_gestion())
+
         self.sorteo_radio_frame_registro = ttk.Frame(registrar)
         self.sorteo_radio_frame_registro.grid(row=1, column=1, padx=5, pady=5, sticky="w")
         for i, s in enumerate(self.sorteo_options_all):
@@ -3268,6 +3274,29 @@ class AppLoteria:
         ganadores = obtener_ultimos_ganadores_db(limite=10)
         for ganador in ganadores:
             self.tree_ganadores.insert("", tk.END, values=(ganador[0], ganador[1], ganador[2]))
+
+
+    def _actualizar_ganadores_gestion(self):
+        """Actualiza el Treeview de ganadores en la pestaña Gestión según la fecha y sorteo seleccionados."""
+        fecha = self.date_entry_registro.get_date().strftime('%Y-%m-%d')
+        sorteo = self.sorteo_registro_var.get()
+
+        self.tree_ganadores.delete(*self.tree_ganadores.get_children())
+
+        if sorteo and sorteo in self.sorteo_options_all:
+            numero = consultar_numero_ganador_db(fecha, sorteo)
+            valor = numero if numero else "🚫 PENDIENTE"
+            tag = ("pendiente",) if not numero else ()
+            self.tree_ganadores.insert("", "end", values=(fecha, sorteo, valor), tags=tag)
+        else:
+            # Si no hay sorteo válido, mostrar todos los sorteos del día
+            for s in self.sorteo_options_all:
+                numero = consultar_numero_ganador_db(fecha, s)
+                valor = numero if numero else "🚫 PENDIENTE"
+                tag = ("pendiente",) if not numero else ()
+                self.tree_ganadores.insert("", "end", values=(fecha, s, valor), tags=tag)
+
+
 
     # Funciones para la pestaña de reportes
     def generar_reporte_gui(self):
