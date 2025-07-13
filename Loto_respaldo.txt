@@ -14,6 +14,14 @@ import winsound
 import pandas as pd
 from tkinter import filedialog, messagebox
 from collections import Counter
+from selenium import webdriver
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.by import By
+from datetime import datetime
+import re
+import time
+
 
 
 from tkcalendar import DateEntry
@@ -23,6 +31,10 @@ from fpdf import FPDF, enums # Importar enums aquí
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
+
+import requests
+from bs4 import BeautifulSoup
+
 
 from collections import Counter
 from datetime import datetime
@@ -887,6 +899,68 @@ def cleanup_temp_pdfs():
 
 # Registrar la función de limpieza para que se ejecute al salir del programa
 atexit.register(cleanup_temp_pdfs)
+
+
+def obtener_resultados_loto_nicaragua():
+    from selenium import webdriver
+    from selenium.webdriver.firefox.service import Service
+    from selenium.webdriver.firefox.options import Options
+    from selenium.webdriver.common.by import By
+    from datetime import datetime
+    import re
+    import time
+
+    url = "https://loto.com.ni/diaria/"
+    opciones = Options()
+    opciones.add_argument("--headless")
+    opciones.add_argument("--disable-gpu")
+
+    service = Service()  # GeckoDriver debe estar en PATH
+    driver = webdriver.Firefox(service=service, options=opciones)
+
+    resultados = {}
+    try:
+        driver.get(url)
+        time.sleep(5)
+
+        es_sabado = datetime.now().weekday() == 5
+
+        # Buscar todos los bloques que contienen sorteos
+        bloques = driver.find_elements(By.CSS_SELECTOR, "div.et_pb_module.et_pb_text")
+
+        for bloque in bloques:
+            texto = bloque.text.strip()
+
+            # Buscar hora del sorteo
+            hora_match = re.search(r"\d{1,2}:\d{2}\s?[AP]M", texto)
+            if not hora_match:
+                continue
+
+            hora = hora_match.group()
+            if "11:00" in hora:
+                clave = "11 AM"
+            elif "3:00" in hora:
+                clave = "03 PM"
+            elif "6:00" in hora and es_sabado:
+                clave = "06 PM"
+            elif "9:00" in hora:
+                clave = "09 PM"
+            else:
+                continue
+
+            # Buscar los dos dígitos del número ganador
+            digitos = re.findall(r"\b\d\b", texto)
+            if len(digitos) >= 2:
+                numero_ganador = f"{digitos[0]}{digitos[1]}".zfill(2)
+                resultados[clave] = numero_ganador
+
+        return resultados
+    except Exception as e:
+        print(f"❌ Error al usar Selenium con Firefox: {e}")
+        return {}
+    finally:
+        driver.quit()
+
 
 # --- Clase de la Ventana de Login ---
 class LoginWindow(tk.Toplevel):
@@ -2567,11 +2641,23 @@ class AppLoteria:
         self.date_entry_registro.grid(row=1, column=0, padx=5, pady=5, sticky="w")
 
         # 🔄 Actualizar Treeview al cambiar la fecha
-        self.date_entry_registro.bind("<<DateEntrySelected>>", lambda e: self._actualizar_ganadores_gestion())
+        self.date_entry_registro.bind(
+            "<<DateEntrySelected>>",
+            lambda e: (
+                self._actualizar_ganadores_gestion(),
+                self.verificar_estado_sorteos_del_dia()
+            )
+        )
 
         self.sorteo_registro_var = tk.StringVar(value=obtener_sorteo_actual_automatico())
         # 🔄 Actualizar Treeview al cambiar el sorteo
-        self.sorteo_registro_var.trace_add("write", lambda *args: self._actualizar_ganadores_gestion())
+        self.sorteo_registro_var.trace_add(
+            "write",
+            lambda *args: (
+                self._actualizar_ganadores_gestion(),
+                self.verificar_estado_sorteos_del_dia()
+            )
+        )
 
         self.sorteo_radio_frame_registro = ttk.Frame(registrar)
         self.sorteo_radio_frame_registro.grid(row=1, column=1, padx=5, pady=5, sticky="w")
@@ -2585,6 +2671,23 @@ class AppLoteria:
         self.ganador_numero_entry.bind("<Return>", lambda e: self.registrar_ganador_gui())
 
         ttk.Button(registrar, text="Registrar", command=self.registrar_ganador_gui, style="Accent.TButton").grid(row=3, column=0, columnspan=2, pady=8)
+
+
+        
+
+        #---- "Botón Consultar desde web" ----
+        ttk.Button(
+            registrar,
+            text="Consultar desde Web",
+            command=self.consultar_resultados_web,
+            style="Naranja.TButton"
+        ).grid(row=4, column=0, columnspan=2, pady=5, sticky="ew")
+
+
+        # ── Etiqueta de estado: faltan o ya están todos los sorteos ──
+        self.lbl_estado_sorteos = ttk.Label(registrar, text="", font=("Arial", 10, "bold"))
+        self.lbl_estado_sorteos.grid(row=5, column=0, columnspan=2, pady=5, sticky="w")
+
 
         # 🟦 Consultar ganador
         consultar = ttk.LabelFrame(self.frame_filtros_sorteos, text="Consultar Número Ganador")
@@ -2659,6 +2762,42 @@ class AppLoteria:
 
         self.root.after(1000, verificar_sorteos_paned_positions)
 
+    def consultar_resultados_web(self):
+        fecha = self.date_entry_registro.get_date().strftime('%Y-%m-%d')
+        web = obtener_resultados_loto_nicaragua()
+        if not web:
+            messagebox.showwarning("Web Loto", "No se obtuvo ningún dato.")
+            return
+
+        encontrados = list(web.keys())
+        registrados, ya, no_vistos = [], [], []
+
+        for sorteo in ["11 AM", "03 PM", "09 PM"] + (["06 PM"] if datetime.now().weekday()==5 else []):
+            num_web = web.get(sorteo)
+            num_loc = consultar_numero_ganador_db(fecha, sorteo)
+
+            if num_web:
+                if num_loc:
+                    ya.append(f"{sorteo}: {num_loc}")
+                else:
+                    ex, _ = registrar_numero_ganador_db(fecha, sorteo, num_web)
+                    if ex: registrados.append(f"{sorteo}: {num_web}")
+            else:
+                no_vistos.append(sorteo)
+
+        msg = (
+            f"📅 Fecha: {fecha}\n"
+            f"🔍 Encontrados: {len(encontrados)} sorteos\n"
+            f"✅ Nuevos registros: {len(registrados)}\n"
+            f"📌 Ya existían: {len(ya)}\n"
+            f"❌ No web: {', '.join(no_vistos) or 'ninguno'}"
+        )
+        messagebox.showinfo("Resultados Web", msg)
+        
+        # Refrescar UI
+        self._actualizar_ganadores_gestion()
+        self.actualizar_ganadores_desde_ventas()
+        self.verificar_estado_sorteos_del_dia()
 
 
     def crear_widgets_tab_reportes(self):
@@ -3266,6 +3405,9 @@ class AppLoteria:
             messagebox.showerror("Error de Entrada", str(e))
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrió un error inesperado: {e}")
+        
+        # ── Actualizar alerta de pendientes ──
+        self.verificar_estado_sorteos_del_dia()
 
     def consultar_ganador_gui(self):
         fecha_str = self.date_entry_consulta.get_date().strftime('%Y-%m-%d')
@@ -4010,6 +4152,25 @@ class AppLoteria:
 
 
 
+    def verificar_estado_sorteos_del_dia(self):
+        """Marca en rojo o verde según qué sorteos de Diaria faltan por ingresar hoy."""
+        fecha = self.date_entry_registro.get_date().strftime('%Y-%m-%d')
+        from datetime import datetime
+        es_sabado = datetime.now().weekday() == 5
+
+        # Lista de sorteos válidos para Diaria hoy
+        sorteos_hoy = ["11 AM", "03 PM", "09 PM"] + (["06 PM"] if es_sabado else [])
+        pendientes = []
+
+        for s in sorteos_hoy:
+            if not consultar_numero_ganador_db(fecha, s):
+                pendientes.append(s)
+
+        if pendientes:
+            texto = f"⚠️ Faltan: {', '.join(pendientes)}"
+            self.lbl_estado_sorteos.config(text=texto, foreground="red")
+        else:
+            self.lbl_estado_sorteos.config(text="✅ Todos los sorteos están registrados", foreground="green")
 
 
 
